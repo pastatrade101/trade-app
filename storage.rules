@@ -1,0 +1,101 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper utilities using user documents as the single source of truth for roles.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function authUid() {
+      return isSignedIn() ? request.auth.uid : '';
+    }
+
+    function userDoc(uid) {
+      return get(/databases/(default)/documents/users/$(uid));
+    }
+
+    function requesterDoc() {
+      return isSignedIn() ? userDoc(authUid()) : null;
+    }
+
+    function requesterRole() {
+      let doc = requesterDoc();
+      return doc != null && doc.exists && doc.data.role != null
+        ? String(doc.data.role).toLowerCase()
+        : '';
+    }
+
+    function isRole(roleName) {
+      return requesterRole() == roleName;
+    }
+
+    function isImageUpload() {
+      return request.resource != null &&
+        request.resource.contentType.matches('^image/.*');
+    }
+
+    function isUnderSizeLimit() {
+      return request.resource != null &&
+        request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Traders manage their own signal media.
+    match /signals/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isRole('trader') &&
+        authUid() == uid &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isRole('trader') && authUid() == uid;
+    }
+
+    // Trader profile banners (owner or admin).
+    match /profile_banners/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() &&
+        (authUid() == uid || isRole('admin')) &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isSignedIn() &&
+        (authUid() == uid || isRole('admin'));
+    }
+
+    // Tips assets are owner/admin writes but readable by authenticated users.
+    match /tips/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() &&
+        (authUid() == uid || isRole('admin')) &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isSignedIn() && (authUid() == uid || isRole('admin'));
+    }
+
+    // Testimonial proof images (traders/admins) readable by authenticated users.
+    match /testimonials/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() &&
+        (authUid() == uid || isRole('admin')) &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isSignedIn() && (authUid() == uid || isRole('admin'));
+    }
+
+    // Affiliates assets are admin-only writes but readable by authenticated users.
+    match /affiliates/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow create, update: if isRole('admin') &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isRole('admin');
+    }
+
+    // Broker logos are admin-only writes but readable by authenticated users.
+    match /brokers/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow create, update: if isRole('admin') &&
+        isImageUpload() &&
+        isUnderSizeLimit();
+      allow delete: if isRole('admin');
+    }
+  }
+}

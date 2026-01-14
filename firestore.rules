@@ -1,0 +1,374 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isTrader() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trader'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.traderStatus == 'active';
+    }
+
+    function isPremiumActive() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.membership.tier == 'premium'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.membership.status == 'active'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.membership.expiresAt > request.time;
+    }
+
+    // Users exist for every signed-in member/trader and hold the single source of truth for roles.
+    match /users/{uid} {
+      function isBannerUpdate() {
+        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'bannerUrl',
+          'bannerPath',
+          'bannerUpdatedAt'
+        ]);
+      }
+      function isSocialLinksUpdate() {
+        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'socialLinks',
+          'updatedAt'
+        ]);
+      }
+
+      allow read: if request.auth != null; // All signed-in users must view other profiles.
+
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'member'
+        && request.resource.data.isVerified == false
+        && request.resource.data.isBanned == false;
+
+      allow update: if request.auth != null
+        && (
+          (
+            get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+          ||
+          (
+            request.auth.uid == uid
+            && isBannerUpdate()
+          )
+          ||
+          (
+            request.auth.uid == uid
+            && isSocialLinksUpdate()
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'trader'
+          )
+          ||
+          (
+            request.auth.uid == uid
+            && !request.resource.data.keys().hasAny(['uid', 'role', 'isVerified', 'isBanned'])
+            && !request.resource.data.diff(resource.data).changedKeys().hasAny(['socialLinks', 'membership'])
+          )
+        );
+    }
+
+    match /users/{uid}/tokens/{tokenId} {
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/saved_signals/{signalId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.signalId == signalId
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['member', 'trader'];
+      allow delete: if request.auth != null
+        && request.auth.uid == uid
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['member', 'trader'];
+      allow update: if false;
+    }
+
+    match /users/{uid}/private/profile {
+      allow read, write: if request.auth != null
+        && (
+          request.auth.uid == uid
+          || (
+            get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+        );
+    }
+
+    match /usernames/{username} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /payment_intents/{intentId} {
+      allow read: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
+    }
+
+    match /success_payment/{paymentId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /revenue_stats/{docId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /config/tradingSessions {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Traders create signals, admins moderate them, everyone else can read public content.
+    match /signals/{signalId} {
+      function isReactionUpdate() {
+        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'likesCount',
+          'dislikesCount',
+          'updatedAt'
+        ]);
+      }
+
+      allow read: if request.auth != null
+        && (
+          resource.data.status != 'hidden'
+          || (
+            get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+        );
+
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'trader'
+        && request.resource.data.status == 'open'
+        && request.resource.data.lockVotes != true
+        && request.resource.data.session in ['LONDON', 'NEW_YORK', 'ASIA']
+        && !request.resource.data.keys().hasAny([
+          'validUntil',
+          'votingOpensAt',
+          'votingClosesAt',
+          'openedAt',
+          'resolvedAt',
+          'resolvedBy',
+          'finalOutcome'
+        ]);
+
+      allow update: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && (
+          get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || (
+            isReactionUpdate()
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['member', 'trader']
+          )
+        );
+
+      allow delete: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+      match /premium_details/{detailId} {
+        allow read: if isPremiumActive()
+          || isAdmin()
+          || (
+            get(/databases/$(database)/documents/signals/$(signalId)).exists
+            && get(/databases/$(database)/documents/signals/$(signalId)).data.uid == request.auth.uid
+          );
+        allow create, update, delete: if request.auth != null
+          && (
+            isAdmin()
+            || (
+              get(/databases/$(database)/documents/signals/$(signalId)).exists
+              && get(/databases/$(database)/documents/signals/$(signalId)).data.uid == request.auth.uid
+            )
+          );
+      }
+
+      match /votes/{voterUid} {
+        allow read: if request.auth != null;
+
+        allow create: if request.auth != null
+          && request.auth.uid == voterUid
+          && let requester = get(/databases/(default)/documents/users/$(request.auth.uid)) in
+            requester.exists
+            && requester.data.role == 'member'
+          && !exists(/databases/$(database)/documents/signals/$(signalId)/votes/$(voterUid))
+          && let signal = get(/databases/(default)/documents/signals/$(signalId)) in
+            signal.exists
+            && signal.data.status == 'voting'
+            && signal.data.lockVotes != true
+            && signal.data.uid != voterUid
+            && request.time >= signal.data.votingOpensAt
+            && request.time <= signal.data.votingClosesAt
+          && let outcome = request.resource.data.outcomeType in
+            outcome in ['TP', 'SL', 'BE', 'PARTIAL'];
+
+        allow update, delete: if false;
+      }
+
+      match /likes/{uid} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null
+          && request.auth.uid == uid
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['member', 'trader'];
+        allow update: if false;
+      }
+
+      match /dislikes/{uid} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null
+          && request.auth.uid == uid
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['member', 'trader'];
+        allow update: if false;
+      }
+    }
+
+    match /tips/{tipId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /trader_tips/{tipId} {
+      allow read: if request.auth != null
+        && (
+          resource.data.status == 'published'
+          || (
+            get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+            && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          )
+          || request.auth.uid == resource.data.createdBy
+        );
+
+      allow create: if request.auth != null
+        && request.resource.data.createdBy == request.auth.uid
+        && isTrader()
+        && request.resource.data.status in ['draft', 'published'];
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.createdBy
+        && isTrader()
+        && request.resource.data.createdBy == resource.data.createdBy;
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.createdBy
+        && isTrader();
+    }
+
+    match /trader_tips/{tipId}/likes/{uid} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if false;
+    }
+
+    match /trader_tips/{tipId}/saves/{uid} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if false;
+    }
+
+    match /testimonials/{testimonialId} {
+      allow read: if request.auth != null
+        && (
+          resource.data.status == 'published'
+          || isAdmin()
+          || request.auth.uid == resource.data.authorUid
+        );
+
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && let requester = get(/databases/(default)/documents/users/$(request.auth.uid)) in
+          requester.exists
+          && (
+            requester.data.role == 'admin'
+            || (
+              requester.data.role == 'trader'
+              && request.resource.data.status == 'published'
+            )
+          );
+
+      allow update: if request.auth != null
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == resource.data.authorUid
+            && request.resource.data.authorUid == resource.data.authorUid
+            && request.resource.data.status == resource.data.status
+          )
+        );
+
+      allow delete: if request.auth != null
+        && (isAdmin() || request.auth.uid == resource.data.authorUid);
+    }
+
+    match /highlights/{highlightId} {
+      allow read: if request.auth != null
+        && (
+          resource.data.isActive == true
+          || isTrader()
+          || isAdmin()
+        );
+      allow create, update, delete: if request.auth != null && isTrader();
+    }
+
+    match /brokers/{brokerId} {
+      allow read: if request.auth != null
+        && (
+          get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || resource.data.isActive == true
+        );
+
+      allow create, update, delete: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /affiliates/{affiliateId} {
+      allow read: if request.auth != null
+        && (
+          get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+          && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          || (resource.data.isActive == true
+              && (request.query == null
+                || request.query.where('isActive', '==', true)))
+        );
+
+      allow create, update, delete: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).exists
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow delete: if false;
+    }
+  }
+}

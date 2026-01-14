@@ -1,0 +1,134 @@
+{
+  "project_info": {
+    "project_number": "370164253057",
+    "project_id": "asset-vista",
+    "storage_bucket": "asset-vista.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:370164253057:android:42cbebfed91cc732f76880",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJpa-zIh7-cZvLWHFVRE4DPWJK3uoxAm0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "370164253057-epcn797s5fur942g3o3vfeqbornjonvr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.iqonic.stockinvestment.stockInvestmentFlutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:370164253057:android:4c105a87c005467ff76880",
+        "android_client_info": {
+          "package_name": "com.iqonic.stock_investment_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "370164253057-v6vtkbmqjls6809qgkg857spmq528cfq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.iqonic.stock_investment_flutter",
+            "certificate_hash": "abe9e0d8d5a8440561a86a5d1face06adab98488"
+          }
+        },
+        {
+          "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJpa-zIh7-cZvLWHFVRE4DPWJK3uoxAm0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "370164253057-epcn797s5fur942g3o3vfeqbornjonvr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.iqonic.stockinvestment.stockInvestmentFlutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:370164253057:android:c61cdfe186e75e20f76880",
+        "android_client_info": {
+          "package_name": "com.marketresolve.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "370164253057-qcnoegbtc2moslfkanvq4fsu3convnnd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.marketresolve.app",
+            "certificate_hash": "97a321c57cdcf7a7dacc906de12a1fc8ba943dcb"
+          }
+        },
+        {
+          "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJpa-zIh7-cZvLWHFVRE4DPWJK3uoxAm0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "370164253057-epcn797s5fur942g3o3vfeqbornjonvr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.iqonic.stockinvestment.stockInvestmentFlutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

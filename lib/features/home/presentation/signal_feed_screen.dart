@@ -1,0 +1,634 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:palette_generator/palette_generator.dart';
+
+import '../../../app/app_theme.dart';
+import '../../../app/providers.dart';
+import '../../../core/models/highlight.dart';
+import '../../../core/models/trading_session_config.dart';
+import '../../../core/utils/time_format.dart';
+import '../../../core/widgets/app_section_card.dart';
+import '../../tips/presentation/tip_detail_screen.dart';
+import '../../profile/presentation/trader_profile_screen.dart';
+import '../data/signal_feed_controller.dart';
+import 'saved_signals_screen.dart';
+import 'signal_card.dart';
+import 'signal_filters.dart';
+import 'signal_detail_screen.dart';
+
+class SignalFeedScreen extends ConsumerStatefulWidget {
+  const SignalFeedScreen({super.key});
+
+  @override
+  ConsumerState<SignalFeedScreen> createState() => _SignalFeedScreenState();
+}
+
+class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
+    with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  List<String> _sessionKeys = const [];
+  List<TradingSession> _sessions = const [];
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessionConfigState = ref.watch(tradingSessionConfigProvider);
+    final sessionConfig = sessionConfigState.asData?.value ??
+        TradingSessionConfig.fallback();
+    final enabledSessions = sessionConfig.enabledSessionsOrdered();
+    final sessions = enabledSessions.isNotEmpty
+        ? enabledSessions
+        : TradingSessionConfig.fallback().enabledSessionsOrdered();
+    _scheduleTabSync(sessions);
+
+    final feedState = ref.watch(signalFeedControllerProvider);
+    final controller = ref.read(signalFeedControllerProvider.notifier);
+    final tabController = _tabController;
+
+    if (tabController == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Signals'),
+          actions: [
+            IconButton(
+              tooltip: 'Saved signals',
+              icon: const Icon(Icons.bookmark_border),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SavedSignalsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final dateKey = tanzaniaDateKey();
+    final highlightStream =
+        ref.read(highlightRepositoryProvider).watchHighlightByDate(dateKey);
+    final tabBar = TabBar(
+      controller: tabController,
+      isScrollable: true,
+      tabs: _sessions.map((session) => Tab(text: session.label)).toList(),
+    );
+
+    return Scaffold(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              pinned: true,
+              title: const Text('Signals'),
+              actions: [
+                IconButton(
+                  tooltip: 'Saved signals',
+                  icon: const Icon(Icons.bookmark_border),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SavedSignalsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: StreamBuilder<DailyHighlight?>(
+                stream: highlightStream,
+                builder: (context, snapshot) {
+                  final highlight = snapshot.data;
+                  if (highlight == null || !highlight.isActive) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: _TodayHighlightCard(
+                      highlight: highlight,
+                      onTap: () => _openHighlight(context, highlight),
+                    ),
+                  );
+                },
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SignalFilters(
+                onChanged: () => ref
+                    .read(signalFeedControllerProvider.notifier)
+                    .loadInitial(),
+              ),
+            ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabBarHeaderDelegate(tabBar: tabBar),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: tabController,
+          children: List.generate(_sessions.length, (_) {
+            return _SignalFeedList(
+              feedState: feedState,
+              onRefresh: controller.loadInitial,
+              onLoadMore: controller.loadMore,
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  void _scheduleTabSync(List<TradingSession> sessions) {
+    final keys = sessions.map((session) => session.key).toList();
+    if (listEquals(keys, _sessionKeys)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _applyTabSessions(sessions, keys);
+    });
+  }
+
+  void _applyTabSessions(List<TradingSession> sessions, List<String> keys) {
+    final controller = TabController(length: keys.length, vsync: this);
+    controller.addListener(() {
+      if (controller.indexIsChanging) {
+        return;
+      }
+      final session = _sessionKeys[controller.index];
+      ref.read(signalFeedFilterProvider.notifier).state =
+          ref.read(signalFeedFilterProvider).copyWith(session: session);
+      ref.read(signalFeedControllerProvider.notifier).loadInitial();
+    });
+
+    if (!mounted) {
+      controller.dispose();
+      return;
+    }
+
+    setState(() {
+      _tabController?.dispose();
+      _tabController = controller;
+      _sessionKeys = keys;
+      _sessions = sessions;
+    });
+
+    if (_sessionKeys.isNotEmpty) {
+      Future(() {
+        if (!mounted) return;
+        ref.read(signalFeedFilterProvider.notifier).state =
+            ref.read(signalFeedFilterProvider).copyWith(
+                  session: _sessionKeys.first,
+                );
+        ref.read(signalFeedControllerProvider.notifier).loadInitial();
+      });
+    }
+  }
+
+  void _openHighlight(BuildContext context, DailyHighlight highlight) {
+    switch (highlight.type) {
+      case 'tip':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TipDetailScreen(tipId: highlight.targetId),
+          ),
+        );
+        return;
+      case 'trader':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TraderProfileScreen(uid: highlight.targetId),
+          ),
+        );
+        return;
+      default:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SignalDetailScreen(signalId: highlight.targetId),
+          ),
+        );
+        return;
+    }
+  }
+}
+
+class _TodayHighlightCard extends ConsumerStatefulWidget {
+  const _TodayHighlightCard({
+    super.key,
+    required this.highlight,
+    required this.onTap,
+  });
+
+  final DailyHighlight highlight;
+  final VoidCallback onTap;
+
+  @override
+  ConsumerState<_TodayHighlightCard> createState() =>
+      _TodayHighlightCardState();
+}
+
+class _TodayHighlightCardState extends ConsumerState<_TodayHighlightCard> {
+  String? _imageUrl;
+  String? _paletteUrl;
+  Color? _vibrantColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHighlightImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TodayHighlightCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.highlight.targetId != widget.highlight.targetId ||
+        oldWidget.highlight.type != widget.highlight.type) {
+      _loadHighlightImage();
+    }
+  }
+
+  Future<void> _loadHighlightImage() async {
+    String? url;
+    try {
+      switch (widget.highlight.type) {
+        case 'tip':
+          final tip = await ref
+              .read(tipRepositoryProvider)
+              .fetchTip(widget.highlight.targetId);
+          url = tip?.imageUrl;
+          break;
+        case 'trader':
+          final trader = await ref
+              .read(userRepositoryProvider)
+              .fetchUser(widget.highlight.targetId);
+          url = trader?.bannerUrl;
+          break;
+        default:
+          final signal = await ref
+              .read(signalRepositoryProvider)
+              .fetchSignal(widget.highlight.targetId);
+          url = signal?.imageUrl;
+          break;
+      }
+    } catch (_) {
+      url = null;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _imageUrl = (url != null && url.isNotEmpty) ? url : null;
+    });
+
+    await _loadPalette(url);
+  }
+
+  Future<void> _loadPalette(String? url) async {
+    if (url == null || url.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _paletteUrl = null;
+          _vibrantColor = null;
+        });
+      }
+      return;
+    }
+    if (_paletteUrl == url && _vibrantColor != null) {
+      return;
+    }
+    try {
+      final palette = await PaletteGenerator.fromImageProvider(
+        NetworkImage(url),
+        size: const Size(200, 200),
+        maximumColorCount: 12,
+      );
+      final swatch = palette.vibrantColor ??
+          palette.darkVibrantColor ??
+          palette.dominantColor ??
+          palette.lightVibrantColor;
+      if (mounted) {
+        setState(() {
+          _paletteUrl = url;
+          _vibrantColor = swatch?.color;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _paletteUrl = url;
+          _vibrantColor = null;
+        });
+      }
+    }
+  }
+
+  Color _darken(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    final darkened =
+        hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
+    return darkened.toColor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final baseColor = _vibrantColor ?? tokens.heroStart;
+    final endColor =
+        _vibrantColor != null ? _darken(baseColor, 0.35) : tokens.heroEnd;
+    final hasImage = _imageUrl != null;
+    return AppSectionCard(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            child: Stack(
+              children: [
+                if (hasImage)
+                  Positioned.fill(
+                    child: Image.network(
+                      _imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          baseColor.withOpacity(hasImage ? 0.6 : 0.9),
+                          endColor.withOpacity(hasImage ? 0.85 : 0.95),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Today's Highlight",
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _HighlightChip(
+                            label: widget.highlight.type,
+                            textColor: Colors.white,
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            borderColor: Colors.white.withOpacity(0.3),
+                          ),
+                          const Spacer(),
+                          Icon(Icons.arrow_forward,
+                              color: Colors.white70, size: 18),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.highlight.title,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.highlight.subtitle,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HighlightChip extends StatelessWidget {
+  const _HighlightChip({
+    required this.label,
+    this.textColor,
+    this.backgroundColor,
+    this.borderColor,
+  });
+
+  final String label;
+  final Color? textColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor ?? tokens.surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor ?? tokens.border),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: textColor ?? tokens.mutedText,
+            ),
+      ),
+    );
+  }
+}
+
+class _SignalFeedList extends StatefulWidget {
+  const _SignalFeedList({
+    required this.feedState,
+    required this.onRefresh,
+    required this.onLoadMore,
+  });
+
+  final AsyncValue<SignalFeedState> feedState;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onLoadMore;
+
+  @override
+  State<_SignalFeedList> createState() => _SignalFeedListState();
+}
+
+class _SignalFeedListState extends State<_SignalFeedList> {
+  bool _isLoadingMore = false;
+
+  Future<void> _maybeLoadMore(bool hasMore) async {
+    if (_isLoadingMore || !hasMore || widget.feedState.isLoading) {
+      return;
+    }
+    setState(() => _isLoadingMore = true);
+    try {
+      await widget.onLoadMore();
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
+  bool _handleScroll(ScrollNotification notification, bool hasMore) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification.metrics.pixels >=
+        notification.metrics.maxScrollExtent - 240) {
+      _maybeLoadMore(hasMore);
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.feedState.valueOrNull;
+    final signals = data?.signals ?? const [];
+    final hasMore = data?.hasMore ?? false;
+
+    if (widget.feedState.isLoading && signals.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: widget.onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 80),
+          children: const [
+            Center(child: CircularProgressIndicator()),
+          ],
+        ),
+      );
+    }
+
+    if (widget.feedState.hasError && signals.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: widget.onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+          children: [
+            const Text(
+              'Unable to load signals.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: widget.onRefresh,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (signals.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: widget.onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+          children: const [
+            Text(
+              'No signals yet.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final showLoader = _isLoadingMore;
+
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) =>
+            _handleScroll(notification, hasMore),
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: signals.length + (showLoader ? 1 : 0),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            if (index >= signals.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final signal = signals[index];
+            return SignalCard(
+              signal: signal,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SignalDetailScreen(signalId: signal.id),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TabBarHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _TabBarHeaderDelegate({required this.tabBar});
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      elevation: overlapsContent ? 2 : 0,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _TabBarHeaderDelegate oldDelegate) {
+    return oldDelegate.tabBar != tabBar;
+  }
+}
