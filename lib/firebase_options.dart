@@ -23,13 +23,14 @@ class DefaultFirebaseOptions {
     }
   }
 
+  // TODO: Replace these placeholder values with `flutterfire configure` output.
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC-ZKVDsLtNFxFuEM1hQA8i3P-2wOrrWtw',
-    appId: '1:370164253057:web:99f5b28f4f8ce408f76880',
-    messagingSenderId: '370164253057',
-    projectId: 'asset-vista',
-    authDomain: 'asset-vista.firebaseapp.com',
-    storageBucket: 'asset-vista.firebasestorage.app',
+    apiKey: 'YOUR_API_KEY',
+    appId: 'YOUR_APP_ID',
+    messagingSenderId: 'YOUR_SENDER_ID',
+    projectId: 'YOUR_PROJECT_ID',
+    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -46,7 +47,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '370164253057',
     projectId: 'asset-vista',
     storageBucket: 'asset-vista.firebasestorage.app',
-    androidClientId: '370164253057-j7fauhb2co050hsmmsgcbfjel6t2b2gs.apps.googleusercontent.com',
     iosClientId: '370164253057-epcn797s5fur942g3o3vfeqbornjonvr.apps.googleusercontent.com',
     iosBundleId: 'com.iqonic.stockinvestment.stockInvestmentFlutter',
   );

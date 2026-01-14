@@ -1,12 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
-import '../../../core/utils/session_cleanup.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class EmailVerificationScreen extends ConsumerStatefulWidget {
   const EmailVerificationScreen({super.key});
@@ -17,38 +12,10 @@ class EmailVerificationScreen extends ConsumerStatefulWidget {
 }
 
 class _EmailVerificationScreenState
-    extends ConsumerState<EmailVerificationScreen>
-    with WidgetsBindingObserver {
-  Timer? _verificationTimer;
+    extends ConsumerState<EmailVerificationScreen> {
   bool _sending = false;
-  bool _reloadInProgress = false;
   bool _refreshing = false;
   String? _message;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _reloadUser(showSpinner: false, showMessageOnError: false);
-    _verificationTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _reloadUser(showSpinner: false, showMessageOnError: false),
-    );
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _verificationTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _reloadUser(showSpinner: false, showMessageOnError: false);
-    }
-  }
 
   Future<void> _sendVerification() async {
     setState(() {
@@ -71,46 +38,21 @@ class _EmailVerificationScreenState
     }
   }
 
-  Future<void> _reloadUser({
-    bool showSpinner = true,
-    bool showMessageOnError = true,
-  }) async {
-    if (_reloadInProgress) {
-      return;
-    }
-    _reloadInProgress = true;
-    if (showSpinner) {
-      setState(() {
-        _refreshing = true;
-        _message = null;
-      });
-    }
+  Future<void> _reloadUser() async {
+    setState(() {
+      _refreshing = true;
+      _message = null;
+    });
     try {
       await ref.read(authRepositoryProvider).reloadCurrentUser();
     } catch (error) {
-      if (showMessageOnError && mounted) {
-        setState(() {
-          _message = error.toString();
-        });
-      }
+      setState(() {
+        _message = error.toString();
+      });
     } finally {
-      _reloadInProgress = false;
-      if (showSpinner && mounted) {
+      if (mounted) {
         setState(() => _refreshing = false);
       }
-    }
-    if (!mounted) {
-      return;
-    }
-    final user = ref.read(authRepositoryProvider).currentUser;
-    if (user != null && user.emailVerified) {
-      _verificationTimer?.cancel();
-      if (mounted) {
-        setState(() {
-          _message = 'Email verified. Signing you in...';
-        });
-      }
-      ref.invalidate(authStateProvider);
     }
   }
 
@@ -118,19 +60,15 @@ class _EmailVerificationScreenState
   Widget build(BuildContext context) {
     final authUser = ref.watch(authStateProvider).value;
     final email = authUser?.email ?? 'your email';
-    final tokens = AppThemeTokens.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Verify your email'),
         actions: [
           IconButton(
-            icon: const Icon(AppIcons.logout),
+            icon: const Icon(Icons.logout),
             tooltip: 'Sign out',
-            onPressed: () async {
-              await prepareForSignOut(ref);
-              await ref.read(authRepositoryProvider).signOut();
-            },
+            onPressed: () => ref.read(authRepositoryProvider).signOut(),
           ),
         ],
       ),
@@ -175,30 +113,10 @@ class _EmailVerificationScreenState
                   : const Text('I verified — continue'),
             ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: tokens.warning.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: tokens.warning.withOpacity(0.4)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(AppIcons.report, color: tokens.warning, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "Didn't receive the email? "
-                      'Please check your Spam or Promotions folder. '
-                      "If you still don't see it, add support@trading.club to your contacts.",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
+            Text(
+              'If you did not receive the email, check spam or add '
+              'support@trading.club to your contacts.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),

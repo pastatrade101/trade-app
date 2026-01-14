@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import 'member_onboarding_screen.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class RoleChoiceScreen extends ConsumerWidget {
   const RoleChoiceScreen({super.key});
@@ -78,7 +77,7 @@ class _RoleCard extends StatelessWidget {
             const SizedBox(height: 8),
             ...benefits.map((item) => Row(
                   children: [
-                    const Icon(AppIcons.check, size: 16),
+                    const Icon(Icons.check, size: 16),
                     const SizedBox(width: 4),
                     Text(item),
                   ],

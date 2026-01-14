@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/broker.dart';
 import '../services/storage_service.dart';
-import '../utils/firestore_guard.dart';
 
 class BrokerRepository {
   BrokerRepository({
@@ -22,13 +21,13 @@ class BrokerRepository {
   Stream<List<Broker>> watchActive() {
     final query =
         _brokers.where('isActive', isEqualTo: true).orderBy('sortOrder');
-    return guardAuthStream(() => query.snapshots().map(_mapSnapshots));
+    return query.snapshots().map(_mapSnapshots);
   }
 
   Stream<List<Broker>> watchAll() {
     final query =
         _brokers.orderBy('isActive', descending: true).orderBy('sortOrder');
-    return guardAuthStream(() => query.snapshots().map(_mapSnapshots));
+    return query.snapshots().map(_mapSnapshots);
   }
 
   Future<String> createBroker({

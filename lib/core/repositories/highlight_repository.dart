@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/highlight.dart';
-import '../utils/firestore_guard.dart';
 
 class HighlightRepository {
   HighlightRepository({FirebaseFirestore? firestore})
@@ -13,14 +12,12 @@ class HighlightRepository {
       _firestore.collection('highlights');
 
   Stream<DailyHighlight?> watchHighlightByDate(String dateKey) {
-    return guardAuthStream(() {
-      return _highlights.doc(dateKey).snapshots().map((snapshot) {
-        final data = snapshot.data();
-        if (!snapshot.exists || data == null) {
-          return null;
-        }
-        return DailyHighlight.fromJson(snapshot.id, data);
-      });
+    return _highlights.doc(dateKey).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (!snapshot.exists || data == null) {
+        return null;
+      }
+      return DailyHighlight.fromJson(snapshot.id, data);
     });
   }
 

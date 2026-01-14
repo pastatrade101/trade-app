@@ -5,14 +5,10 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/testimonial.dart';
-import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/time_format.dart';
-import '../../../core/widgets/app_reveal.dart';
 import '../../../core/widgets/app_section_card.dart';
-import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/widgets/firestore_error_widget.dart';
 import 'testimonial_form_screen.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class TestimonialsScreen extends ConsumerWidget {
   const TestimonialsScreen({super.key});
@@ -20,7 +16,7 @@ class TestimonialsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).value;
-    final canSubmit = isTrader(user?.role);
+    final isTrader = user?.role == 'trader';
     final repo = ref.watch(testimonialRepositoryProvider);
     return Scaffold(
       appBar: AppBar(
@@ -28,10 +24,10 @@ class TestimonialsScreen extends ConsumerWidget {
         elevation: 2,
         shadowColor: Colors.black12,
         actions: [
-          if (canSubmit)
+          if (isTrader)
             IconButton(
               tooltip: 'Submit testimonial',
-              icon: const Icon(AppIcons.post_add),
+              icon: const Icon(Icons.post_add),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -57,24 +53,20 @@ class TestimonialsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
-              if (canSubmit && user != null) ...[
+              if (isTrader && user != null) ...[
                 _TraderSubmissionSection(user: user),
                 const SizedBox(height: 16),
               ],
               const SizedBox(height: 12),
               if (loading)
-                const _TestimonialsLoading()
+                const Center(child: CircularProgressIndicator())
               else if (testimonials.isEmpty)
                 const Text('No testimonials published yet.')
               else
                 ...testimonials.map(
                   (testimonial) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: RepaintBoundary(
-                      child: AppReveal(
-                        child: _TestimonialCard(testimonial: testimonial),
-                      ),
-                    ),
+                    child: _TestimonialCard(testimonial: testimonial),
                   ),
                 ),
             ],
@@ -118,37 +110,35 @@ class _TraderSubmissionSection extends ConsumerWidget {
                 ...visible.map(
                   (testimonial) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: AppReveal(
-                      child: _TestimonialCard(
-                        testimonial: testimonial,
-                        showStatus: true,
-                        actions: [
-                          OutlinedButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => TestimonialFormScreen(
-                                    testimonial: testimonial,
-                                  ),
+                    child: _TestimonialCard(
+                      testimonial: testimonial,
+                      showStatus: true,
+                      actions: [
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => TestimonialFormScreen(
+                                  testimonial: testimonial,
                                 ),
-                              );
-                            },
-                            child: const Text('Edit'),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              final shouldDelete = await _confirmDelete(context);
-                              if (shouldDelete != true) {
-                                return;
-                              }
-                              final repo =
-                                  ref.read(testimonialRepositoryProvider);
-                              await repo.delete(testimonial);
-                            },
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
+                              ),
+                            );
+                          },
+                          child: const Text('Edit'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final shouldDelete = await _confirmDelete(context);
+                            if (shouldDelete != true) {
+                              return;
+                            }
+                            final repo =
+                                ref.read(testimonialRepositoryProvider);
+                            await repo.delete(testimonial);
+                          },
+                          child: const Text('Delete'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -276,21 +266,6 @@ class _TestimonialCard extends StatelessWidget {
       default:
         return tokens.mutedText;
     }
-  }
-}
-
-class _TestimonialsLoading extends StatelessWidget {
-  const _TestimonialsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: const [
-        AppShimmerBox(height: 120, radius: 20),
-        SizedBox(height: 12),
-        AppShimmerBox(height: 120, radius: 20),
-      ],
-    );
   }
 }
 

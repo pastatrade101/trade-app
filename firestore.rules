@@ -8,13 +8,8 @@ service cloud.firestore {
 
     function isTrader() {
       return request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['trader', 'trader_admin']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trader'
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.traderStatus == 'active';
-    }
-
-    function isRevenueAdmin() {
-      return request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'trader_admin'];
     }
 
     function isPremiumActive() {
@@ -37,14 +32,6 @@ service cloud.firestore {
         return request.resource.data.diff(resource.data).changedKeys().hasOnly([
           'socialLinks',
           'updatedAt'
-        ]);
-      }
-      function isTermsUpdate() {
-        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          'termsAccepted',
-          'termsAcceptedAt',
-          'termsVersion',
-          'termsAcceptedAppVersion'
         ]);
       }
 
@@ -77,19 +64,8 @@ service cloud.firestore {
           ||
           (
             request.auth.uid == uid
-            && isTermsUpdate()
-          )
-          ||
-          (
-            request.auth.uid == uid
-            && !request.resource.data.diff(resource.data).changedKeys().hasAny([
-              'uid',
-              'role',
-              'isVerified',
-              'isBanned',
-              'socialLinks',
-              'membership'
-            ])
+            && !request.resource.data.keys().hasAny(['uid', 'role', 'isVerified', 'isBanned'])
+            && !request.resource.data.diff(resource.data).changedKeys().hasAny(['socialLinks', 'membership'])
           )
         );
     }
@@ -134,111 +110,19 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    match /settings/support {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin() || isTrader();
-    }
-
-    match /app_config/{docId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /conversations/{conversationId} {
-      allow read: if request.auth != null
-        && (resource.data.memberUid == request.auth.uid
-          || resource.data.traderUid == request.auth.uid);
-      allow create, update, delete: if false;
-
-      match /messages/{messageId} {
-        allow read: if request.auth != null
-          && (
-            get(/databases/$(database)/documents/conversations/$(conversationId)).data.memberUid == request.auth.uid
-            || get(/databases/$(database)/documents/conversations/$(conversationId)).data.traderUid == request.auth.uid
-          );
-        allow create, update, delete: if false;
-      }
-    }
-
-    match /chatQuotas/{quotaId} {
-      allow read: if request.auth != null
-        && (resource.data.memberUid == request.auth.uid
-          || resource.data.traderUid == request.auth.uid);
-      allow create, update, delete: if false;
-    }
-
-    match /support_threads/{uid} {
-      function isMemberThreadUpdate() {
-        let keys = request.resource.data.diff(resource.data).changedKeys();
-        return keys.hasOnly(['unreadForMember'])
-          || (
-            keys.hasOnly(['lastMessage', 'lastMessageAt', 'lastSender', 'unreadForTrader'])
-            && request.resource.data.lastSender == 'member'
-          );
-      }
-
-      function isTraderThreadUpdate() {
-        let keys = request.resource.data.diff(resource.data).changedKeys();
-        return keys.hasOnly([
-          'lastMessage',
-          'lastMessageAt',
-          'lastSender',
-          'unreadForMember',
-          'unreadForTrader',
-          'isBlocked'
-        ]);
-      }
-
-      allow read: if request.auth != null
-        && (request.auth.uid == uid || isAdmin() || isTrader());
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null
-        && (
-          (request.auth.uid == uid && isMemberThreadUpdate())
-          || ((isAdmin() || isTrader()) && isTraderThreadUpdate())
-        );
-      allow delete: if false;
-
-      match /messages/{messageId} {
-        function isSupportPremiumAllowed() {
-          return !(get(/databases/$(database)/documents/settings/support).data.premiumOnly == true)
-            || isPremiumActive();
-        }
-
-        allow read: if request.auth != null
-          && (request.auth.uid == uid || isAdmin() || isTrader());
-        allow create: if request.auth != null
-          && (
-            (
-              request.auth.uid == uid
-              && request.resource.data.senderRole == 'member'
-              && request.resource.data.senderUid == request.auth.uid
-              && isSupportPremiumAllowed()
-              && !(get(/databases/$(database)/documents/support_threads/$(uid)).data.isBlocked == true)
-            )
-            || (
-              (isAdmin() || isTrader())
-              && request.resource.data.senderRole == 'trader'
-              && request.resource.data.senderUid == request.auth.uid
-            )
-          );
-        allow update, delete: if false;
-      }
-    }
-
     match /payment_intents/{intentId} {
       allow read: if request.auth != null
-        && (resource.data.uid == request.auth.uid || isRevenueAdmin());
+        && (resource.data.uid == request.auth.uid || isAdmin());
       allow create, update, delete: if false;
     }
 
     match /success_payment/{paymentId} {
-      allow read: if request.auth != null && isRevenueAdmin();
+      allow read: if request.auth != null && isAdmin();
       allow create, update, delete: if false;
     }
 
     match /revenue_stats/{docId} {
-      allow read: if request.auth != null && isRevenueAdmin();
+      allow read: if request.auth != null && isAdmin();
       allow create, update, delete: if false;
     }
 

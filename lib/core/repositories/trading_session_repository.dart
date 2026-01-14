@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/trading_session_config.dart';
-import '../utils/firestore_guard.dart';
 
 class TradingSessionRepository {
   TradingSessionRepository({FirebaseFirestore? firestore})
@@ -14,13 +13,11 @@ class TradingSessionRepository {
   }
 
   Stream<TradingSessionConfig> watchConfig() {
-    return guardAuthStream(() {
-      return _configDoc.snapshots().map((snapshot) {
-        if (!snapshot.exists) {
-          return TradingSessionConfig.fallback();
-        }
-        return TradingSessionConfig.fromJson(snapshot.data());
-      });
+    return _configDoc.snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return TradingSessionConfig.fallback();
+      }
+      return TradingSessionConfig.fromJson(snapshot.data());
     });
   }
 

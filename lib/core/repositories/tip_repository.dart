@@ -3,7 +3,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/tip.dart';
 import '../utils/firestore_helpers.dart';
-import '../utils/firestore_guard.dart';
 
 class TipPage {
   const TipPage({
@@ -43,14 +42,12 @@ class TipRepository {
   String newTipId() => _tips.doc().id;
 
   Stream<TraderTip?> watchTip(String tipId) {
-    return guardAuthStream(() {
-      return _tips.doc(tipId).snapshots().map((snapshot) {
-        final data = snapshot.data();
-        if (!snapshot.exists || data == null) {
-          return null;
-        }
-        return TraderTip.fromJson(snapshot.id, data);
-      });
+    return _tips.doc(tipId).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (!snapshot.exists || data == null) {
+        return null;
+      }
+      return TraderTip.fromJson(snapshot.id, data);
     });
   }
 
@@ -72,21 +69,19 @@ class TipRepository {
   Stream<TipEngagementSummary> watchTipEngagementSummary({
     required String uid,
   }) {
-    return guardAuthStream(() {
-      return _tips.where('createdBy', isEqualTo: uid).snapshots().map((snapshot) {
-        var totalLikes = 0;
-        var totalSaves = 0;
-        for (final doc in snapshot.docs) {
-          final data = doc.data();
-          totalLikes += (data['likesCount'] as num?)?.toInt() ?? 0;
-          totalSaves += (data['savesCount'] as num?)?.toInt() ?? 0;
-        }
-        return TipEngagementSummary(
-          totalTips: snapshot.docs.length,
-          totalLikes: totalLikes,
-          totalSaves: totalSaves,
-        );
-      });
+    return _tips.where('createdBy', isEqualTo: uid).snapshots().map((snapshot) {
+      var totalLikes = 0;
+      var totalSaves = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        totalLikes += (data['likesCount'] as num?)?.toInt() ?? 0;
+        totalSaves += (data['savesCount'] as num?)?.toInt() ?? 0;
+      }
+      return TipEngagementSummary(
+        totalTips: snapshot.docs.length,
+        totalLikes: totalLikes,
+        totalSaves: totalSaves,
+      );
     });
   }
 
@@ -194,28 +189,24 @@ class TipRepository {
     required String tipId,
     required String uid,
   }) {
-    return guardAuthStream(() {
-      return _tips
-          .doc(tipId)
-          .collection('likes')
-          .doc(uid)
-          .snapshots()
-          .map((snapshot) => snapshot.exists);
-    });
+    return _tips
+        .doc(tipId)
+        .collection('likes')
+        .doc(uid)
+        .snapshots()
+        .map((snapshot) => snapshot.exists);
   }
 
   Stream<bool> watchSaveStatus({
     required String tipId,
     required String uid,
   }) {
-    return guardAuthStream(() {
-      return _tips
-          .doc(tipId)
-          .collection('saves')
-          .doc(uid)
-          .snapshots()
-          .map((snapshot) => snapshot.exists);
-    });
+    return _tips
+        .doc(tipId)
+        .collection('saves')
+        .doc(uid)
+        .snapshots()
+        .map((snapshot) => snapshot.exists);
   }
 
   Future<bool> toggleLike({

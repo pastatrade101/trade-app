@@ -7,24 +7,18 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/payment_intent.dart';
 import '../../../core/models/product.dart';
-import '../../../core/models/user_membership.dart';
-import '../../../services/analytics_service.dart';
-import '../../../core/widgets/app_toast.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class PaymentStatusScreen extends ConsumerStatefulWidget {
   const PaymentStatusScreen({
     super.key,
     required this.intentId,
     this.product,
-    this.provider,
     this.providerLabel,
     this.accountNumber,
   });
 
-  final String? intentId;
+  final String intentId;
   final Product? product;
-  final String? provider;
   final String? providerLabel;
   final String? accountNumber;
 
@@ -40,17 +34,10 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
   DateTime? _createdAt;
   Duration? _remaining;
   String? _lastStatus;
-  String? _intentId;
-  bool _creating = false;
-  String? _createError;
 
   @override
   void initState() {
     super.initState();
-    _intentId = widget.intentId;
-    if (_intentId == null) {
-      _createIntent();
-    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_expiresAt == null) {
         return;
@@ -72,81 +59,9 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     super.dispose();
   }
 
-  Future<void> _createIntent() async {
-    if (_creating) {
-      return;
-    }
-    setState(() {
-      _creating = true;
-      _createError = null;
-    });
-    try {
-      final productId = widget.product?.id;
-      final provider = widget.provider;
-      final accountNumber = widget.accountNumber;
-      if (productId == null || provider == null || accountNumber == null) {
-        throw Exception('Missing payment details.');
-      }
-      final user = ref.read(currentUserProvider).value;
-      if (user == null) {
-        throw Exception('Sign in required.');
-      }
-      if (accountNumber.isNotEmpty && accountNumber != user.phoneNumber) {
-        await ref
-            .read(userRepositoryProvider)
-            .updatePhoneNumber(uid: user.uid, phoneNumber: accountNumber);
-      }
-      final result = await ref.read(paymentRepositoryProvider).createPaymentIntent(
-            productId: productId,
-            provider: provider,
-            accountNumber: accountNumber,
-          );
-      if (!mounted) return;
-      if (result.trialActivated) {
-        final message = result.offerLabel ??
-            (result.trialDays != null
-                ? 'Trial activated for ${result.trialDays} day${result.trialDays == 1 ? '' : 's'}.'
-                : 'Trial activated. Enjoy premium!');
-        AppToast.success(context, message);
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        return;
-      }
-      setState(() {
-        _intentId = result.intentId;
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _createError = error.toString();
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _creating = false);
-      }
-    }
-  }
-
   void _syncTiming(PaymentIntent? intent) {
     final expiresAt = intent?.expiresAt;
     final createdAt = intent?.createdAt;
-    if (intent == null) {
-      if (_createdAt == null) {
-        final now = DateTime.now();
-        final fallbackExpires = now.add(const Duration(seconds: 50));
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _createdAt = now;
-            _expiresAt = fallbackExpires;
-            _remaining = fallbackExpires.difference(DateTime.now());
-          });
-        });
-      }
-      return;
-    }
     if (_expiresAt == expiresAt && _createdAt == createdAt) {
       return;
     }
@@ -166,17 +81,11 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     });
   }
 
-  void _handleStatusChange(
-    BuildContext context,
-    String status,
-    PaymentIntent? intent,
-    Product? product,
-  ) {
+  void _handleStatusChange(BuildContext context, String status) {
     if (_lastStatus == status) {
       return;
     }
     _lastStatus = status;
-    _logCheckoutAnalytics(status, intent, product);
     _redirectTimer?.cancel();
     if (status == 'failed' || status == 'expired') {
       _redirectTimer = Timer(const Duration(seconds: 3), () {
@@ -188,42 +97,11 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     }
   }
 
-  void _logCheckoutAnalytics(
-    String status,
-    PaymentIntent? intent,
-    Product? product,
-  ) {
-    final provider =
-        intent?.provider ?? widget.provider ?? widget.providerLabel ?? '';
-    final productId = intent?.productId ?? product?.id ?? widget.product?.id ?? '';
-    final intentId = intent?.id ?? _intentId ?? '';
-
-    String resultStatus = 'pending';
-    if (status == 'paid') {
-      resultStatus = 'success';
-    } else if (status == 'failed' ||
-        status == 'expired' ||
-        status == 'submit_failed') {
-      resultStatus = 'failed';
-    }
-    AnalyticsService.instance.logEvent(
-      'premium_checkout_result',
-      params: {
-        'status': resultStatus,
-        'provider': provider,
-        'planId': productId,
-        'intentId': intentId,
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    final membership = ref.watch(userMembershipProvider).value;
-    final intentStream = _intentId == null
-        ? Stream<PaymentIntent?>.value(null)
-        : ref.read(paymentRepositoryProvider).watchPaymentIntent(_intentId!);
+    final intentStream =
+        ref.read(paymentRepositoryProvider).watchPaymentIntent(widget.intentId);
     return Scaffold(
       appBar: AppBar(title: const Text('Payment status')),
       body: StreamBuilder<PaymentIntent?>(
@@ -231,25 +109,12 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
         builder: (context, snapshot) {
           final intent = snapshot.data;
           final status = intent?.status ?? 'pending';
-          final membershipPaid = _isMembershipPaid(intent, membership);
-          final isPaid = (intent?.isPaid ?? false) || membershipPaid;
-          final isLocallyExpired = !isPaid &&
-              (intent?.isPending ?? true) &&
-              _remaining != null &&
-              _remaining == Duration.zero;
-          final hasCreateError = _createError != null;
-          final isFailed =
-              hasCreateError || (intent?.isFailed ?? false) || isLocallyExpired;
-          final isPending = !isPaid && !isFailed;
-          final effectiveStatus = isPaid
-              ? 'paid'
-              : hasCreateError
-                  ? 'submit_failed'
-                  : isLocallyExpired
-                  ? 'expired'
-                  : status;
+          final isPending = intent == null || intent.isPending;
+          final isPaid = intent?.isPaid ?? false;
+          final isFailed = intent?.isFailed ?? false;
 
           _syncTiming(intent);
+          _handleStatusChange(context, status);
 
           final productStream = intent != null
               ? ref.read(productRepositoryProvider).watchProduct(intent.productId)
@@ -259,7 +124,6 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
             stream: productStream,
             builder: (context, productSnapshot) {
               final product = productSnapshot.data ?? widget.product;
-              _handleStatusChange(context, effectiveStatus, intent, product);
               final progress = _calculateProgress();
               final brandColor =
                   _providerBrandColor(intent?.provider ?? widget.providerLabel, tokens);
@@ -278,19 +142,11 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
                                 remaining: _remaining,
                                 progress: progress,
                                 brandColor: brandColor,
-                                isSubmitting: _creating && _intentId == null,
                               )
                             else
                               _StatusHeader(
                                 isPaid: isPaid,
                                 isFailed: isFailed,
-                                titleOverride: hasCreateError
-                                    ? 'Unable to start payment'
-                                    : null,
-                                subtitleOverride: hasCreateError
-                                    ? (_createError ??
-                                        'Please try again or choose another method.')
-                                    : null,
                               ),
                             const SizedBox(height: 16),
                             _OrderSummaryCard(
@@ -387,24 +243,6 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
     }
     return value.clamp(0.0, 1.0);
   }
-
-  bool _isMembershipPaid(
-    PaymentIntent? intent,
-    UserMembership? membership,
-  ) {
-    if (intent == null || membership == null) {
-      return false;
-    }
-    if (!membership.isPremiumActive()) {
-      return false;
-    }
-    final anchor = membership.updatedAt ?? membership.startedAt;
-    final createdAt = intent.createdAt;
-    if (anchor == null || createdAt == null) {
-      return false;
-    }
-    return !anchor.isBefore(createdAt.subtract(const Duration(seconds: 5)));
-  }
 }
 
 class _AwaitingCard extends StatelessWidget {
@@ -412,13 +250,11 @@ class _AwaitingCard extends StatelessWidget {
     required this.remaining,
     required this.progress,
     required this.brandColor,
-    required this.isSubmitting,
   });
 
   final Duration? remaining;
   final double? progress;
   final Color brandColor;
-  final bool isSubmitting;
 
   @override
   Widget build(BuildContext context) {
@@ -457,7 +293,7 @@ class _AwaitingCard extends StatelessWidget {
                   color: textColor.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(AppIcons.schedule, color: textColor),
+                child: Icon(Icons.schedule, color: textColor),
               ),
               const SizedBox(width: 12),
               Text(
@@ -467,24 +303,11 @@ class _AwaitingCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const Spacer(),
-              SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    textColor.withOpacity(0.9),
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            isSubmitting
-                ? 'Sending the mobile money request. Keep this screen open.'
-                : 'Please approve the mobile money prompt on your phone to complete the payment.',
+            'Please approve the mobile money prompt on your phone to complete the payment.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: textColor.withOpacity(0.9),
                 ),
@@ -516,7 +339,7 @@ class _AwaitingCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(AppIcons.timer, size: 14, color: textColor),
+                        Icon(Icons.timer, size: 14, color: textColor),
                         const SizedBox(width: 6),
                         Text(
                           timerText,
@@ -562,14 +385,10 @@ class _StatusHeader extends StatelessWidget {
   const _StatusHeader({
     required this.isPaid,
     required this.isFailed,
-    this.titleOverride,
-    this.subtitleOverride,
   });
 
   final bool isPaid;
   final bool isFailed;
-  final String? titleOverride;
-  final String? subtitleOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -577,18 +396,16 @@ class _StatusHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final iconColor =
         isPaid ? tokens.success : isFailed ? colorScheme.error : colorScheme.primary;
-    final title = titleOverride ??
-        (isPaid
-            ? 'Payment confirmed'
-            : isFailed
-                ? 'Payment cancelled'
-                : 'Waiting for confirmation');
-    final subtitle = subtitleOverride ??
-        (isPaid
-            ? 'Congratulations! Your premium access is active.'
-            : isFailed
-                ? 'We did not receive confirmation from your wallet.'
-                : 'Approve the mobile money prompt on your phone.');
+    final title = isPaid
+        ? 'Payment confirmed'
+        : isFailed
+            ? 'Payment cancelled'
+            : 'Waiting for confirmation';
+    final subtitle = isPaid
+        ? 'Congratulations! Your premium access is active.'
+        : isFailed
+            ? 'We did not receive confirmation from your wallet.'
+            : 'Approve the mobile money prompt on your phone.';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -601,10 +418,10 @@ class _StatusHeader extends StatelessWidget {
           ),
           child: Icon(
             isPaid
-                ? AppIcons.check_circle
+                ? Icons.check_circle
                 : isFailed
-                    ? AppIcons.cancel
-                    : AppIcons.hourglass_top,
+                    ? Icons.cancel
+                    : Icons.hourglass_top,
             color: iconColor,
           ),
         ),
@@ -841,7 +658,7 @@ class _NextStepsCard extends StatelessWidget {
         children: const [
           Row(
             children: [
-              Icon(AppIcons.receipt_long, size: 18),
+              Icon(Icons.receipt_long, size: 18),
               SizedBox(width: 8),
               Text(
                 'Next Steps',
@@ -921,7 +738,7 @@ class _SecureRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(AppIcons.verified_user, size: 18, color: tokens.success),
+        Icon(Icons.verified_user, size: 18, color: tokens.success),
         const SizedBox(width: 8),
         Text(
           'Secure Payment Processing',

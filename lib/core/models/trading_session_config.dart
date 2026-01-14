@@ -3,7 +3,7 @@ import '../utils/firestore_helpers.dart';
 const String tradingSessionConfigDoc = 'config/tradingSessions';
 const String defaultTradingTimezone = 'Africa/Dar_es_Salaam';
 const int defaultSessionDurationMinutes = 120;
-const List<String> tradingSessionKeys = ['ASIA', 'LONDON', 'NEW_YORK'];
+const List<String> tradingSessionKeys = ['LONDON', 'NEW_YORK', 'ASIA'];
 
 const Map<String, String> tradingSessionLabels = {
   'LONDON': 'London',

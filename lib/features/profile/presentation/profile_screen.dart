@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,29 +11,18 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/signal.dart';
-import '../../../core/models/user_membership.dart';
 import '../../../core/repositories/tip_repository.dart';
 import '../../../core/utils/role_helpers.dart';
-import '../../../core/utils/session_cleanup.dart';
 import '../../../core/utils/social_links.dart';
-import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_section_card.dart';
-import '../../../core/widgets/app_toast.dart';
-import '../../../app/navigation.dart';
 import '../../admin/presentation/admin_panel_screen.dart';
 import '../../admin/presentation/highlight_manager_screen.dart';
 import '../../tips/presentation/admin_tips_manager_screen.dart';
 import '../../auth/presentation/member_onboarding_screen.dart';
 import '../../home/presentation/signal_detail_screen.dart';
-import '../../home/presentation/signal_feed_screen.dart';
 import '../../partners/presentation/partners_tab.dart';
 import '../../testimonials/presentation/testimonials_screen.dart';
-import '../../admin/presentation/trader_admin_revenue_shell.dart';
-import '../../limited_chat/ui/member_trader_picker_screen.dart';
-import '../../limited_chat/ui/trader_inbox_screen.dart';
-import '../../news/presentation/news_page.dart';
 import 'settings_screen.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({
@@ -53,33 +41,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   late final AnimationController _controller;
   bool _uploadingAvatar = false;
   bool _uploadingBanner = false;
-  bool _signOutLoading = false;
 
   bool get _needsProfileCompletion {
     return widget.user.username.isEmpty || widget.user.displayName.isEmpty;
-  }
-
-  Future<void> _signOut() async {
-    if (_signOutLoading) {
-      return;
-    }
-    setState(() => _signOutLoading = true);
-    try {
-      await prepareForSignOut(ref);
-      await ref.read(authRepositoryProvider).signOut();
-      if (mounted) {
-        AppToast.success(context, 'Signed out successfully.');
-        rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-      }
-    } catch (_) {
-      if (mounted) {
-        AppToast.error(context, 'Unable to sign out. Try again.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _signOutLoading = false);
-      }
-    }
   }
 
   @override
@@ -205,7 +169,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(AppIcons.photo_library),
+                  leading: const Icon(Icons.photo_library),
                   title: const Text('Upload banner'),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -214,7 +178,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
                 if (hasBanner)
                   ListTile(
-                    leading: const Icon(AppIcons.delete_outline),
+                    leading: const Icon(Icons.delete_outline),
                     title: const Text('Remove banner'),
                     onTap: () {
                       Navigator.of(context).pop();
@@ -306,7 +270,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(AppIcons.close),
+                        icon: const Icon(Icons.close),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -383,10 +347,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
     }
 
-    add('twitter', AppIcons.alternate_email, 'X');
-    add('telegram', AppIcons.send, 'Telegram');
-    add('instagram', AppIcons.camera_alt, 'Instagram');
-    add('youtube', AppIcons.ondemand_video, 'YouTube');
+    add('twitter', Icons.alternate_email, 'X');
+    add('telegram', Icons.send, 'Telegram');
+    add('instagram', Icons.camera_alt, 'Instagram');
+    add('youtube', Icons.ondemand_video, 'YouTube');
     return buttons;
   }
 
@@ -411,7 +375,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final user = widget.user;
     final isAdmin = user.role == 'admin';
     final isActiveTrader =
-        isTrader(user.role) && user.traderStatus == 'active';
+        user.role == 'trader' && user.traderStatus == 'active';
     final colorScheme = Theme.of(context).colorScheme;
     final tokens = AppThemeTokens.of(context);
     final primaryColor = colorScheme.primary;
@@ -423,7 +387,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final signalsStream =
         ref.watch(signalRepositoryProvider).watchUserSignals(user.uid);
-    final tipStatsStream = isTrader(user.role)
+    final tipStatsStream = user.role == 'trader'
         ? ref
             .watch(tipRepositoryProvider)
             .watchTipEngagementSummary(uid: user.uid)
@@ -435,7 +399,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         actions: [
           if (isAdmin)
             IconButton(
-              icon: const Icon(AppIcons.admin_panel_settings),
+              icon: const Icon(Icons.admin_panel_settings),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -445,7 +409,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               },
             ),
           IconButton(
-            icon: const Icon(AppIcons.settings),
+            icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -491,7 +455,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            AppIcons.edit_note,
+                            Icons.edit_note,
                             color: primaryColor,
                           ),
                         ),
@@ -547,18 +511,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ],
-              if (user.role == 'member') ...[
-                const SizedBox(height: 16),
-                _buildAnimatedSection(
-                  start: 0.18,
-                  end: 0.78,
-                  child: _MembershipStatusCard(
-                    membership: user.membership ?? UserMembership.free(),
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
-              if (isTrader(user.role)) ...[
+              if (user.role == 'trader') ...[
                 _buildAnimatedSection(
                   start: 0.28,
                   end: 0.88,
@@ -592,7 +546,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
                                   onPressed: () => _showSocialLinksEditor(user),
-                                  icon: const Icon(AppIcons.add),
+                                  icon: const Icon(Icons.add),
                                   label: const Text('Add social links'),
                                 ),
                               ),
@@ -613,7 +567,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
                 const SizedBox(height: 16),
               ],
-              if (isTrader(user.role)) ...[
+              if (user.role == 'trader') ...[
                 _buildAnimatedSection(
                   start: 0.32,
                   end: 0.92,
@@ -690,10 +644,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         const SizedBox(height: 8),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(AppIcons.lightbulb_outline),
+                          leading: const Icon(Icons.lightbulb_outline),
                           title: const Text('Tips manager'),
                           subtitle: const Text('Publish and archive your tips'),
-                          trailing: const Icon(AppIcons.chevron_right),
+                          trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -705,29 +659,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         const Divider(height: 12),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(AppIcons.star_outline),
+                          leading: const Icon(Icons.star_outline),
                           title: const Text('Daily highlight'),
                           subtitle: const Text('Pick today highlight card'),
-                          trailing: const Icon(AppIcons.chevron_right),
+                          trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const HighlightManagerScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Divider(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(AppIcons.send),
-                          title: const Text('Support inbox'),
-                          subtitle: const Text('Reply to member questions'),
-                          trailing: const Icon(AppIcons.chevron_right),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const TraderInboxScreen(),
                               ),
                             );
                           },
@@ -750,21 +689,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => SignalFeedScreen(),
+                                    builder: (_) =>
+                                        const TestimonialsScreen(),
                                   ),
                                 );
                               },
-                              icon: const Icon(AppIcons.show_chart),
-                              label: const Text('Signals'),
+                              icon: const Icon(Icons.format_quote),
+                              label: const Text('Testimonials'),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: primaryColor,
+                                side: BorderSide(color: primaryColor),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -772,146 +732,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                   ),
                                 );
                               },
-                              icon: const Icon(AppIcons.handshake),
-                              label: const Text('Brokers'),
+                              icon: const Icon(Icons.handshake),
+                              label: const Text('Trusted Brokers'),
                             ),
                           ),
                         ],
                       ),
-                      if (isMember(user.role)) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const NewsPage(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(AppIcons.public),
-                            label: const Text('News'),
-                          ),
-                        ),
-                      ],
-                      if (isTraderAdmin(user.role)) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const TraderAdminRevenueShell(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(AppIcons.payments_outlined),
-                            label: const Text('Revenue'),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              if (user.role != 'member') ...[
-                _buildAnimatedSection(
-                  start: 0.45,
-                  end: 1.0,
-                  child: AppSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const AppSectionTitle(title: 'Recent signals'),
-                        const SizedBox(height: 12),
-                        StreamBuilder<List<Signal>>(
-                          stream: signalsStream,
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Center(
-                                  child: SizedBox(
-                                    height: 28,
-                                    width: 28,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  ),
+              _buildAnimatedSection(
+                start: 0.45,
+                end: 1.0,
+                child: AppSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AppSectionTitle(title: 'Recent signals'),
+                      const SizedBox(height: 12),
+                      StreamBuilder<List<Signal>>(
+                        stream: signalsStream,
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: SizedBox(
+                                  height: 28,
+                                  width: 28,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 ),
-                              );
-                            }
-                            final signals = snapshot.data!;
-                            if (signals.isEmpty) {
-                              return Text(
-                                'No recent signals',
-                                style: TextStyle(color: mutedText),
-                              );
-                            }
-                            return Column(
-                              children: signals
-                                  .map(
-                                    (signal) => _SignalTile(
-                                      signal: signal,
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => SignalDetailScreen(
-                                              signalId: signal.id,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                                  .toList(),
+                              ),
                             );
-                          },
-                        ),
-                      ],
-                    ),
+                          }
+                          final signals = snapshot.data!;
+                          if (signals.isEmpty) {
+                            return Text(
+                              'No recent signals',
+                              style: TextStyle(color: mutedText),
+                            );
+                          }
+                          return Column(
+                            children: signals
+                                .map(
+                                  (signal) => _SignalTile(
+                                    signal: signal,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => SignalDetailScreen(
+                                            signalId: signal.id,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
+              const SizedBox(height: 16),
               Text(
                 'Community-generated content. Not financial advice. '
                 'No guaranteed profits.',
                 style: TextStyle(
                   fontSize: 12,
                   color: mutedText,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildAnimatedSection(
-                start: 0.6,
-                end: 1.0,
-                child: AppSectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppSectionTitle(title: 'Account'),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _signOutLoading ? null : _signOut,
-                          icon: _signOutLoading
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(AppIcons.logout),
-                          label: const Text('Log out'),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
           ],
@@ -1056,7 +949,8 @@ class _ProfileHeroCardState extends State<_ProfileHeroCard> {
     final tokens = AppThemeTokens.of(context);
     final displayName =
         widget.user.displayName.isNotEmpty ? widget.user.displayName : 'New member';
-    final email = widget.user.email.isNotEmpty ? widget.user.email : null;
+    final handle =
+        widget.user.username.isNotEmpty ? '@${widget.user.username}' : 'Add username';
     final statusInfo = _buildStatus(tokens);
     final bannerUrl = widget.user.bannerUrl ?? '';
     final hasBanner = bannerUrl.isNotEmpty;
@@ -1084,7 +978,6 @@ class _ProfileHeroCardState extends State<_ProfileHeroCard> {
     ];
 
     return Container(
-      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: tokens.surface,
         borderRadius: BorderRadius.circular(24),
@@ -1147,7 +1040,7 @@ class _ProfileHeroCardState extends State<_ProfileHeroCard> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: IconButton(
-                      icon: const Icon(AppIcons.more_vert, color: Colors.white),
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
                       iconSize: 18,
                       tooltip: 'Banner options',
                       onPressed: widget.onBannerTap,
@@ -1155,129 +1048,118 @@ class _ProfileHeroCardState extends State<_ProfileHeroCard> {
                   ),
                 ),
               Positioned(
-                left: 0,
-                right: 0,
+                left: 16,
                 bottom: -28,
-                child: Align(
-                  alignment: Alignment.center,
-                  child: _ProfileAvatar(
-                    avatarUrl: widget.user.avatarUrl,
-                    initials: widget.initials,
-                    baseColor: baseColor,
-                    uploading: widget.uploadingAvatar,
-                    onTap: widget.onUploadTap,
-                  ),
+                child: _ProfileAvatar(
+                  avatarUrl: widget.user.avatarUrl,
+                  initials: widget.initials,
+                  baseColor: baseColor,
+                  uploading: widget.uploadingAvatar,
+                  onTap: widget.onUploadTap,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 40),
-          Align(
-            alignment: Alignment.center,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    displayName,
-                    textAlign: TextAlign.center,
-                    style: textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  if (widget.user.isVerified) ...[
-                    const SizedBox(height: 4),
-                    Icon(
-                      AppIcons.verified,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
-                  if (email != null) ...[
-                    const SizedBox(height: 6),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
                     Text(
-                      email!,
-                      textAlign: TextAlign.center,
+                      handle,
                       style: textTheme.bodySmall?.copyWith(
                         color: tokens.mutedText,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (widget.user.isVerified) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.verified,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
                   ],
-                  if (widget.user.bio.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                ),
+                if (widget.user.bio.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.user.bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: tokens.mutedText,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _InfoChip(
+                      icon: Icons.shield_outlined,
+                      label: roleLabel(widget.user.role),
+                      backgroundColor: tokens.surfaceAlt,
+                      textColor: tokens.mutedText,
+                    ),
+                    if (statusInfo != null)
+                      _InfoChip(
+                        icon: Icons.insights,
+                        label: statusInfo.label,
+                        backgroundColor: statusInfo.color.withOpacity(0.16),
+                        textColor: statusInfo.color,
+                      ),
+                    if (widget.user.country.isNotEmpty)
+                      _InfoChip(
+                        icon: Icons.public,
+                        label: widget.user.country,
+                        backgroundColor: tokens.surfaceAlt,
+                        textColor: tokens.mutedText,
+                      ),
+                    if (widget.user.isBanned)
+                      _InfoChip(
+                        icon: Icons.block,
+                        label: 'Banned',
+                        backgroundColor: Colors.red.withOpacity(0.12),
+                        textColor: Colors.redAccent,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (detailChips.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: detailChips,
+                  ),
+                ],
+                if (widget.user.role == 'trader' &&
+                    widget.user.traderStatus != 'active') ...[
+                  const SizedBox(height: 12),
+                  if (widget.user.rejectReason != null) ...[
+                    const SizedBox(height: 6),
                     Text(
-                      widget.user.bio,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                      'Reason: ${widget.user.rejectReason}',
                       style: textTheme.bodySmall?.copyWith(
                         color: tokens.mutedText,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _InfoChip(
-                        icon: AppIcons.shield_outlined,
-                        label: roleLabel(widget.user.role),
-                        backgroundColor: tokens.surfaceAlt,
-                        textColor: tokens.mutedText,
-                      ),
-                      if (statusInfo != null)
-                        _InfoChip(
-                          icon: AppIcons.insights,
-                          label: statusInfo.label,
-                          backgroundColor: statusInfo.color.withOpacity(0.16),
-                          textColor: statusInfo.color,
-                        ),
-                      if (widget.user.country.isNotEmpty)
-                        _InfoChip(
-                          icon: AppIcons.public,
-                          label: widget.user.country,
-                          backgroundColor: tokens.surfaceAlt,
-                          textColor: tokens.mutedText,
-                        ),
-                      if (widget.user.isBanned)
-                        _InfoChip(
-                          icon: AppIcons.block,
-                          label: 'Banned',
-                          backgroundColor: Colors.red.withOpacity(0.12),
-                          textColor: Colors.redAccent,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (detailChips.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: detailChips,
-                    ),
-                  ],
-                  if (isTrader(widget.user.role) &&
-                      widget.user.traderStatus != 'active') ...[
-                    const SizedBox(height: 12),
-                    if (widget.user.rejectReason != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Reason: ${widget.user.rejectReason}',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: tokens.mutedText,
-                        ),
-                      ),
-                    ],
-                  ],
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -1338,70 +1220,63 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: uploading ? null : onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: tokens.border),
-            ),
-            child: CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.white,
-              backgroundImage:
-                  avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-              child: avatarUrl.isEmpty
-                  ? Text(
-                      initials,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: baseColor,
-                          ),
-                    )
-                  : null,
-            ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: tokens.border),
           ),
-          Positioned(
-            bottom: -2,
-            right: -2,
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: uploading ? null : onTap,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  height: 30,
-                  width: 30,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: tokens.border),
-                  ),
-                  child: uploading
-                      ? Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: baseColor,
-                          ),
-                        )
-                      : Icon(
-                          AppIcons.camera_alt,
-                          size: 16,
+          child: CircleAvatar(
+            radius: 32,
+            backgroundColor: Colors.white,
+            backgroundImage:
+                avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl.isEmpty
+                ? Text(
+                    initials,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
                           color: baseColor,
                         ),
-                ),
+                  )
+                : null,
+          ),
+        ),
+        Positioned(
+          bottom: -2,
+          right: -2,
+          child: InkWell(
+            onTap: uploading ? null : onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 30,
+              width: 30,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: tokens.border),
               ),
+              child: uploading
+                  ? Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: baseColor,
+                      ),
+                    )
+                  : Icon(
+                      Icons.camera_alt,
+                      size: 16,
+                      color: baseColor,
+                    ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1503,7 +1378,7 @@ class _SignalTile extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: Text('${signal.pair} ${signal.direction}'),
           subtitle: Text('Status: ${signal.status}'),
-          trailing: const Icon(AppIcons.chevron_right),
+          trailing: const Icon(Icons.chevron_right),
           onTap: onTap,
         ),
         const Divider(height: 1),
@@ -1565,232 +1440,6 @@ class _SocialIconButton extends StatelessWidget {
           ),
           child: Icon(icon, size: 20),
         ),
-      ),
-    );
-  }
-}
-
-class _MembershipStatusCard extends StatelessWidget {
-  const _MembershipStatusCard({required this.membership});
-
-  final UserMembership membership;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = AppThemeTokens.of(context);
-    final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final now = DateTime.now();
-    final expiresAt = membership.expiresAt;
-    final isPremium = membership.tier == 'premium';
-    final remaining =
-        expiresAt == null ? null : expiresAt.difference(now);
-    final isExpired = remaining != null && remaining.isNegative;
-    final isActive = membership.status == 'active' && isPremium && !isExpired;
-
-    final statusLabel = isActive
-        ? 'Active'
-        : isPremium
-            ? 'Expired'
-            : 'Free';
-    final statusColor =
-        isActive ? tokens.success : isPremium ? tokens.warning : tokens.mutedText;
-
-    final timeLeft = isActive && remaining != null
-        ? formatCountdown(remaining)
-        : '--';
-    final endsOn = expiresAt != null
-        ? formatTanzaniaDateTime(expiresAt, pattern: 'MMM d, yyyy')
-        : '--';
-
-    final message = isActive
-        ? 'Your premium access is active.'
-        : isPremium
-            ? 'Your premium plan has ended. Renew to keep full access.'
-            : 'No active membership. Choose a plan to unlock premium signals.';
-
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final mutedColor = isDark ? Colors.white70 : Colors.black54;
-    final cardBorder = isDark
-        ? Colors.white.withOpacity(0.08)
-        : tokens.border;
-    final cardSurface = isDark
-        ? Colors.black.withOpacity(0.7)
-        : Colors.white;
-    final cardGradient = LinearGradient(
-      colors: isDark
-          ? [
-              Colors.black.withOpacity(0.75),
-              Colors.black.withOpacity(0.55),
-            ]
-          : [
-              Colors.white,
-              Colors.white,
-            ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-
-    final content = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardSurface,
-        gradient: cardGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.shadow,
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-        border: Border.all(color: cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                height: 40,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.08)
-                      : AppTheme.lightSurfaceAlt,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cardBorder),
-                ),
-                child: Icon(
-                  AppIcons.workspace_premium,
-                  color: tokens.heroStart,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Membership',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isPremium ? 'Premium plan' : 'Free plan',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: mutedColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: textTheme.bodySmall?.copyWith(color: mutedColor),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MembershipInfoTile(
-                  label: 'Time left',
-                  value: timeLeft,
-                  textColor: textColor,
-                  mutedColor: mutedColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MembershipInfoTile(
-                  label: 'Ends on',
-                  value: endsOn,
-                  textColor: textColor,
-                  mutedColor: mutedColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    if (!isDark) {
-      return content;
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: content,
-      ),
-    );
-  }
-}
-
-class _MembershipInfoTile extends StatelessWidget {
-  const _MembershipInfoTile({
-    required this.label,
-    required this.value,
-    required this.textColor,
-    required this.mutedColor,
-  });
-
-  final String label;
-  final String value;
-  final Color textColor;
-  final Color mutedColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: textColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: mutedColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: textTheme.titleSmall?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

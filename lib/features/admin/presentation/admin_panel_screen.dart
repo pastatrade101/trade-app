@@ -5,8 +5,6 @@ import 'report_review_screen.dart';
 import 'signal_moderation_screen.dart';
 import 'session_settings_screen.dart';
 import 'plan_manager_screen.dart';
-import 'global_offer_settings_screen.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({super.key});
@@ -18,7 +16,7 @@ class AdminPanelScreen extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            leading: const Icon(AppIcons.link),
+            leading: const Icon(Icons.link),
             title: const Text('Broker manager'),
             onTap: () {
               Navigator.of(context).push(
@@ -27,7 +25,7 @@ class AdminPanelScreen extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(AppIcons.report),
+            leading: const Icon(Icons.report),
             title: const Text('Review reports'),
             onTap: () {
               Navigator.of(context).push(
@@ -36,7 +34,7 @@ class AdminPanelScreen extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(AppIcons.shield),
+            leading: const Icon(Icons.shield),
             title: const Text('Moderate signals'),
             onTap: () {
               Navigator.of(context).push(
@@ -45,7 +43,7 @@ class AdminPanelScreen extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(AppIcons.schedule),
+            leading: const Icon(Icons.schedule),
             title: const Text('Session settings'),
             onTap: () {
               Navigator.of(context).push(
@@ -56,23 +54,11 @@ class AdminPanelScreen extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(AppIcons.payments_outlined),
+            leading: const Icon(Icons.payments_outlined),
             title: const Text('Publish plans'),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PlanManagerScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(AppIcons.timer),
-            title: const Text('Trials & offers'),
-            subtitle: const Text('Toggle the global trial or discount'),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const GlobalOfferSettingsScreen(),
-                ),
               );
             },
           ),

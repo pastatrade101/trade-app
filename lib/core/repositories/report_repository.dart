@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/report.dart';
-import '../utils/firestore_guard.dart';
 
 class ReportRepository {
   ReportRepository({FirebaseFirestore? firestore})
@@ -17,15 +16,13 @@ class ReportRepository {
   }
 
   Stream<List<ReportItem>> watchReportsByStatus(String status) {
-    return guardAuthStream(() {
-      return _reports
-          .where('status', isEqualTo: status)
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => ReportItem.fromJson(doc.id, doc.data()))
-              .toList());
-    });
+    return _reports
+        .where('status', isEqualTo: status)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ReportItem.fromJson(doc.id, doc.data()))
+            .toList());
   }
 
   Stream<List<ReportItem>> watchOpenReports() {

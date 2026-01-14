@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -122,9 +121,6 @@ class _TraderApplicationScreenState
     final country = _countryController.text.trim();
     final bio = _bioController.text.trim();
     final phone = _phoneController.text.trim();
-    final email = ref.read(authStateProvider).valueOrNull?.email ??
-        FirebaseAuth.instance.currentUser?.email ??
-        '';
     final oauthSocials = <String, String>{};
     if (_whatsappController.text.trim().isNotEmpty) {
       oauthSocials['whatsapp'] = _whatsappController.text.trim();
@@ -146,7 +142,6 @@ class _TraderApplicationScreenState
         username: username,
         usernameLower: usernameLower,
         avatarUrl: widget.initialProfile?.avatarUrl ?? '',
-        email: email,
         bio: bio,
         country: country,
         sessions: _selectedSessions.toList(),

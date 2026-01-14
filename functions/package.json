@@ -4,19 +4,15 @@
   "engines": {
     "node": "20"
   },
-  "main": "lib/index.js",
+  "main": "index.js",
   "dependencies": {
     "axios": "^1.6.8",
-    "fast-xml-parser": "^4.3.6",
     "firebase-admin": "^12.5.0",
     "firebase-functions": "^5.0.1"
   }
   ,
   "scripts": {
     "lint": "node -e \"console.log('Skipping functions lint')\"",
-    "build": "tsc"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.5"
+    "build": "node -e \"console.log('Skipping functions build');\""
   }
 }

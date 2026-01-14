@@ -4,11 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/highlight.dart';
-import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_section_card.dart';
 import '../../../core/widgets/app_toast.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class HighlightManagerScreen extends ConsumerStatefulWidget {
   const HighlightManagerScreen({super.key});
@@ -303,7 +301,7 @@ class _HighlightManagerScreenState extends ConsumerState<HighlightManagerScreen>
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value;
     final isActiveTrader =
-        isTrader(user?.role) && user?.traderStatus == 'active';
+        user?.role == 'trader' && user?.traderStatus == 'active';
     if (user == null || !isActiveTrader) {
       return const Scaffold(
         body: Center(child: Text('Trader access required.')),
@@ -338,7 +336,7 @@ class _HighlightManagerScreenState extends ConsumerState<HighlightManagerScreen>
                             ),
                             OutlinedButton.icon(
                               onPressed: _pickDate,
-                              icon: const Icon(AppIcons.calendar_today),
+                              icon: const Icon(Icons.calendar_today),
                               label: const Text('Change'),
                             ),
                           ],

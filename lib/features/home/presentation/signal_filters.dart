@@ -14,6 +14,12 @@ class SignalFilters extends ConsumerWidget {
     final filter = ref.watch(signalFeedFilterProvider);
     final pairItems = <String?>[null, ...AppConstants.instruments];
     final pairLabels = <String>['All Pairs', ...AppConstants.instruments];
+    final directionItems = <String?>[null, ...AppConstants.directionOptions];
+    final directionLabels = <String>[
+      'All Directions',
+      ...AppConstants.directionOptions
+    ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
@@ -54,6 +60,45 @@ class SignalFilters extends ConsumerWidget {
                   onChanged: (value) {
                     ref.read(signalFeedFilterProvider.notifier).state =
                         filter.copyWith(pair: value);
+                    onChanged();
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String?>(
+                  value: filter.direction,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    hintText: 'All Directions',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                  ),
+                  items: directionItems
+                      .map(
+                        (direction) => DropdownMenuItem(
+                          value: direction,
+                          child: Text(direction ?? 'All Directions'),
+                        ),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) => directionLabels
+                      .map(
+                        (label) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    ref.read(signalFeedFilterProvider.notifier).state =
+                        filter.copyWith(direction: value);
                     onChanged();
                   },
                 ),

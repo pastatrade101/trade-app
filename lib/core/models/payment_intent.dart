@@ -13,11 +13,6 @@ class PaymentIntent {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? expiresAt;
-  final String? offerType;
-  final String? offerLabel;
-  final double originalPrice;
-  final double discountedPrice;
-  final double? discountPercent;
 
   const PaymentIntent({
     required this.id,
@@ -32,11 +27,6 @@ class PaymentIntent {
     required this.createdAt,
     required this.updatedAt,
     required this.expiresAt,
-    this.offerType,
-    this.offerLabel,
-    required this.originalPrice,
-    required this.discountedPrice,
-    this.discountPercent,
   });
 
   factory PaymentIntent.fromJson(String id, Map<String, dynamic> json) {
@@ -53,11 +43,6 @@ class PaymentIntent {
       createdAt: timestampToDate(json['createdAt']),
       updatedAt: timestampToDate(json['updatedAt']),
       expiresAt: timestampToDate(json['expiresAt']),
-      offerType: json['offerType']?.toString(),
-      offerLabel: json['offerLabel']?.toString(),
-      originalPrice: (json['originalPrice'] ?? json['amount'] ?? 0).toDouble(),
-      discountedPrice: (json['discountedPrice'] ?? json['amount'] ?? 0).toDouble(),
-      discountPercent: (json['discountPercent'] as num?)?.toDouble(),
     );
   }
 
@@ -74,11 +59,6 @@ class PaymentIntent {
       'createdAt': dateToTimestamp(createdAt),
       'updatedAt': dateToTimestamp(updatedAt),
       'expiresAt': dateToTimestamp(expiresAt),
-      'offerType': offerType,
-      'offerLabel': offerLabel,
-      'originalPrice': originalPrice,
-      'discountedPrice': discountedPrice,
-      'discountPercent': discountPercent,
     };
   }
 

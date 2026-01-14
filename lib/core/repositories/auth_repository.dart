@@ -1,17 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-const String _webGoogleClientId =
-    '370164253057-1nn683o00t5vr7kkcl4j1oht2l92qgcr.apps.googleusercontent.com';
 
 class AuthRepository {
   AuthRepository({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
       : _auth = auth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ??
-            GoogleSignIn(
-              clientId: kIsWeb ? _webGoogleClientId : null,
-            );
+        _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
@@ -52,11 +45,7 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    try {
-      await _googleSignIn.signOut();
-    } catch (_) {
-      // Ignore Google sign-out failures and still sign out of Firebase.
-    }
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 

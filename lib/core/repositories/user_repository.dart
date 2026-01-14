@@ -4,7 +4,6 @@ import '../models/app_user.dart';
 import '../models/stats_summary.dart';
 import '../models/user_membership.dart';
 import '../models/validator_stats.dart';
-import '../utils/firestore_guard.dart';
 
 class UserRepository {
   UserRepository({FirebaseFirestore? firestore})
@@ -16,13 +15,11 @@ class UserRepository {
       _firestore.collection('users');
 
   Stream<AppUser?> watchUser(String uid) {
-    return guardAuthStream(() {
-      return _users.doc(uid).snapshots().map((snapshot) {
-        if (!snapshot.exists || snapshot.data() == null) {
-          return null;
-        }
-        return AppUser.fromJson(snapshot.id, snapshot.data()!);
-      });
+    return _users.doc(uid).snapshots().map((snapshot) {
+      if (!snapshot.exists || snapshot.data() == null) {
+        return null;
+      }
+      return AppUser.fromJson(snapshot.id, snapshot.data()!);
     });
   }
 
@@ -35,27 +32,13 @@ class UserRepository {
   }
 
   Stream<List<AppUser>> watchUsers({int limit = 200}) {
-    return guardAuthStream(() {
-      return _users
-          .orderBy('usernameLower', descending: false)
-          .limit(limit)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => AppUser.fromJson(doc.id, doc.data()))
-              .toList());
-    });
-  }
-
-  Stream<List<AppUser>> watchSupportTraders({int limit = 100}) {
-    return guardAuthStream(() {
-      return _users
-          .where('role', whereIn: ['trader', 'trader_admin'])
-          .limit(limit)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => AppUser.fromJson(doc.id, doc.data()))
-              .toList());
-    });
+    return _users
+        .orderBy('usernameLower', descending: false)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AppUser.fromJson(doc.id, doc.data()))
+            .toList());
   }
 
   Future<bool> isUsernameAvailable(String username) async {
@@ -154,18 +137,6 @@ class UserRepository {
       'phoneNumber': phoneNumber,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-  }
-
-  Future<void> deleteUserData(AppUser user) async {
-    final userRef = _users.doc(user.uid);
-    final privateRef = userRef.collection('private').doc('profile');
-    final batch = _firestore.batch();
-    batch.delete(privateRef);
-    batch.delete(userRef);
-    if (user.usernameLower.isNotEmpty) {
-      batch.delete(_firestore.collection('usernames').doc(user.usernameLower));
-    }
-    await batch.commit();
   }
 
   Future<void> ensureUserDoc(String uid) async {
@@ -269,15 +240,13 @@ class UserRepository {
   }
 
   Stream<List<AppUser>> watchTraderApplicants() {
-    return guardAuthStream(() {
-      return _users
-          .where('traderStatus', isEqualTo: 'pending')
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => AppUser.fromJson(doc.id, doc.data()))
-              .toList());
-    });
+    return _users
+        .where('traderStatus', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AppUser.fromJson(doc.id, doc.data()))
+            .toList());
   }
 
   Future<String?> fetchPrivatePhoneNumber(String uid) async {

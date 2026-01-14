@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/models/broker.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class BrokerFormScreen extends ConsumerStatefulWidget {
   const BrokerFormScreen({
@@ -163,7 +162,7 @@ class _BrokerFormScreenState extends ConsumerState<BrokerFormScreen> {
                 onChanged: (value) => setState(() => _isActive = value),
               ),
               TextButton.icon(
-                icon: const Icon(AppIcons.photo),
+                icon: const Icon(Icons.photo),
                 label: Text(existingLogo == null && _logoFile == null ? 'Upload logo' : 'Replace logo'),
                 onPressed: _pickLogo,
               ),

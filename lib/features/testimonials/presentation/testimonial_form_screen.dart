@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/testimonial.dart';
 import '../../../core/widgets/app_toast.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class TestimonialFormScreen extends ConsumerStatefulWidget {
   const TestimonialFormScreen({super.key, this.testimonial});
@@ -217,7 +216,7 @@ class _TestimonialFormScreenState extends ConsumerState<TestimonialFormScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _submitting ? null : _pickProof,
-                    icon: const Icon(AppIcons.image_outlined),
+                    icon: const Icon(Icons.image_outlined),
                     label: Text(
                       (_proofFile != null || (_proofUrl ?? '').isNotEmpty)
                           ? 'Replace proof'
@@ -237,7 +236,7 @@ class _TestimonialFormScreenState extends ConsumerState<TestimonialFormScreen> {
                               _proofUrl = null;
                               _proofPath = null;
                             }),
-                    icon: const Icon(AppIcons.close),
+                    icon: const Icon(Icons.close),
                   ),
                 ],
               ],

@@ -15,9 +15,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/firestore_error_widget.dart';
 import '../../reports/presentation/report_dialog.dart';
 import '../../profile/presentation/trader_profile_screen.dart';
-import '../../premium/presentation/paywall_router.dart';
-import '../../../services/analytics_service.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
+import '../../premium/presentation/premium_paywall_screen.dart';
 
 final signalDetailProvider = StreamProvider.family<Signal?, String>((ref, id) {
   return ref.read(signalRepositoryProvider).watchSignal(id);
@@ -48,7 +46,6 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
   final _adminNoteController = TextEditingController();
   bool _adminLoading = false;
   Timer? _clock;
-  bool _loggedView = false;
 
   @override
   void dispose() {
@@ -160,22 +157,6 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
     final sessionConfig =
         ref.watch(tradingSessionConfigProvider).asData?.value ??
             TradingSessionConfig.fallback();
-    final tokens = AppThemeTokens.of(context);
-
-    if (!_loggedView) {
-      final signal = signalState.value;
-      if (signal != null) {
-        _loggedView = true;
-        AnalyticsService.instance.logEvent(
-          'signal_open',
-          params: {
-            'signalId': signal.id,
-            'traderUid': signal.uid,
-            'pair': signal.pair,
-          },
-        );
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -191,7 +172,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                 return IconButton(
                   tooltip: isSaved ? 'Saved' : 'Save',
                   icon: Icon(
-                    isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
+                    isSaved ? Icons.bookmark : Icons.bookmark_border,
                   ),
                   onPressed: () => _toggleSaved(
                     uid: currentUser.uid,
@@ -202,7 +183,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
               },
             ),
           IconButton(
-            icon: const Icon(AppIcons.flag),
+            icon: const Icon(Icons.flag),
             onPressed: () async {
               await showDialog(
                 context: context,
@@ -220,47 +201,44 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
           if (signal == null) {
             return const Center(child: Text('Signal not found'));
           }
-          final colorScheme = Theme.of(context).colorScheme;
-          final canViewPremium = isPremiumActive ||
-              (currentUser?.role == 'admin') ||
-              (currentUser?.uid == signal.uid);
-          final isLocked = signal.premiumOnly && !canViewPremium;
-          final premiumDetailsState = signal.premiumOnly
-              ? ref.watch(signalPremiumDetailsProvider((
-                  signalId: widget.signalId,
-                  canView: canViewPremium,
-                )))
-              : const AsyncValue<SignalPremiumDetails?>.data(null);
-          final premiumDetails = premiumDetailsState.valueOrNull;
-          final entryText = _entryText(
-            premiumDetails?.entryPrice ?? signal.entryPrice,
-            premiumDetails?.entryRange ?? signal.entryRange,
-            locked: isLocked,
-          );
-          final dateText = formatTanzaniaDateTime(signal.validUntil);
-          final sessionLabel = sessionConfig.labelFor(signal.session);
-          final now = DateTime.now();
-          final tradeStart = signal.openedAt ?? signal.createdAt;
-          final tradeEnd = signal.validUntil;
-          final tradeProgress = _progressBetween(tradeStart, tradeEnd, now);
-          final finalOutcomeLabel = signal.finalOutcome;
-          final showResolveButtons =
-              signal.status == 'open' ||
-              signal.status == 'voting' ||
-              signal.status == 'expired_unverified';
-          final isAdminUser = currentUser != null && isAdmin(currentUser.role);
-          final resolvedAtText = signal.resolvedAt != null
-              ? formatTanzaniaDateTime(signal.resolvedAt!)
-              : null;
-          final openPaywall = () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const PaywallRouter(
-                  sourceScreen: 'SignalDetails',
-                ),
-              ),
+            final canViewPremium = isPremiumActive ||
+                (currentUser?.role == 'admin') ||
+                (currentUser?.uid == signal.uid);
+            final isLocked = signal.premiumOnly && !canViewPremium;
+            final premiumDetailsState = signal.premiumOnly
+                ? ref.watch(signalPremiumDetailsProvider((
+                    signalId: widget.signalId,
+                    canView: canViewPremium,
+                  )))
+                : const AsyncValue<SignalPremiumDetails?>.data(null);
+            final premiumDetails = premiumDetailsState.valueOrNull;
+            final entryText = _entryText(
+              premiumDetails?.entryPrice ?? signal.entryPrice,
+              premiumDetails?.entryRange ?? signal.entryRange,
+              locked: isLocked,
             );
-          };
+            final dateText = formatTanzaniaDateTime(signal.validUntil);
+            final sessionLabel = sessionConfig.labelFor(signal.session);
+            final now = DateTime.now();
+            final tradeStart = signal.openedAt ?? signal.createdAt;
+            final tradeEnd = signal.validUntil;
+            final tradeProgress = _progressBetween(tradeStart, tradeEnd, now);
+            final finalOutcomeLabel = signal.finalOutcome;
+            final showResolveButtons =
+                signal.status == 'open' ||
+                signal.status == 'voting' ||
+                signal.status == 'expired_unverified';
+            final isAdminUser = currentUser != null && isAdmin(currentUser.role);
+            final resolvedAtText = signal.resolvedAt != null
+                ? formatTanzaniaDateTime(signal.resolvedAt!)
+                : null;
+            final openPaywall = () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PremiumPaywallScreen(),
+                ),
+              );
+            };
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -297,14 +275,12 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                             Chip(
                               backgroundColor: _outcomeColor(
                                       finalOutcomeLabel,
-                                      Theme.of(context).colorScheme,
-                                      tokens)
+                                      Theme.of(context).colorScheme)
                                   .withOpacity(0.15),
                               side: BorderSide(
                                 color: _outcomeColor(
                                         finalOutcomeLabel,
-                                        Theme.of(context).colorScheme,
-                                        tokens)
+                                        Theme.of(context).colorScheme)
                                     .withOpacity(0.6),
                               ),
                               label: Text('Final outcome: $finalOutcomeLabel'),
@@ -348,13 +324,10 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         if (signal.posterVerifiedSnapshot)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              AppIcons.verified,
-                              size: 16,
-                              color: colorScheme.primary,
-                            ),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(Icons.verified,
+                                size: 16, color: Colors.blue),
                           ),
                       ],
                     ),
@@ -367,6 +340,8 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                       reasoning: premiumDetails?.reason ?? signal.reasoning,
                       tags: signal.tags,
                     ),
+                  const Divider(height: 32),
+                  const Text('Comments (coming soon)'),
                   if (isAdminUser) ...[
                     const Divider(height: 32),
                     Card(
@@ -462,7 +437,7 @@ class _SignalTradeCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final isBuy = signal.direction.toLowerCase() == 'buy';
-    final directionColor = isBuy ? tokens.success : colorScheme.error;
+    final directionColor = isBuy ? tokens.success : Colors.redAccent;
     final statusLabel = _statusLabel(signal.status);
     final statusColor = _statusColor(signal.status, colorScheme, tokens);
     final tp1Value = isLocked ? null : (premiumDetails?.tp1 ?? signal.tp1);
@@ -493,7 +468,7 @@ class _SignalTradeCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(AppIcons.lock, size: 18, color: colorScheme.primary),
+                    Icon(Icons.lock, size: 18, color: colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -580,7 +555,6 @@ class _SignalTradeCard extends StatelessWidget {
                         label: 'Entry',
                         value: entryText,
                         valueColor: textTheme.bodyLarge?.color,
-                        icon: AppIcons.login,
                       ),
                       const SizedBox(height: 10),
                       _SignalStat(
@@ -588,7 +562,6 @@ class _SignalTradeCard extends StatelessWidget {
                         value: tp1Value?.toStringAsFixed(2) ?? '--',
                         valueColor:
                             tp1Value != null ? tokens.success : tokens.mutedText,
-                        icon: AppIcons.flag_outlined,
                       ),
                     ],
                   ),
@@ -601,9 +574,8 @@ class _SignalTradeCard extends StatelessWidget {
                         label: 'SL',
                         value: stopLossValue?.toStringAsFixed(2) ?? '--',
                         valueColor: stopLossValue != null
-                            ? colorScheme.error
+                            ? Colors.redAccent
                             : tokens.mutedText,
-                        icon: AppIcons.stop_circle_outlined,
                       ),
                       const SizedBox(height: 10),
                       _SignalStat(
@@ -611,7 +583,6 @@ class _SignalTradeCard extends StatelessWidget {
                         value: tp2Value?.toStringAsFixed(2) ?? '--',
                         valueColor:
                             tp2Value != null ? tokens.success : tokens.mutedText,
-                        icon: AppIcons.flag,
                       ),
                     ],
                   ),
@@ -627,7 +598,6 @@ class _SignalTradeCard extends StatelessWidget {
                     label: 'Type',
                     value: entryTypeText,
                     valueColor: textTheme.bodyLarge?.color,
-                    icon: AppIcons.tune,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -636,115 +606,63 @@ class _SignalTradeCard extends StatelessWidget {
                     label: 'Risk',
                     value: riskText,
                     valueColor: textTheme.bodyLarge?.color,
-                    icon: AppIcons.shield_outlined,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            AppIcons.person_outline,
-                            size: 14,
-                            color: tokens.mutedText,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              signal.posterNameSnapshot,
-                              style: textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (signal.posterVerifiedSnapshot) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              AppIcons.verified,
-                              size: 14,
-                              color: colorScheme.primary,
-                            ),
-                          ],
-                        ],
+                      Text(
+                        'Session: $sessionLabel',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: tokens.mutedText,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            AppIcons.schedule,
-                            size: 14,
-                            color: tokens.mutedText,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Session: $sessionLabel',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: tokens.mutedText,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Expires at: $dateText',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: tokens.mutedText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        expiresIn,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: tokens.mutedText,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          AppIcons.event,
-                          size: 14,
-                          color: tokens.mutedText,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Expires at: $dateText',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          AppIcons.timer,
-                          size: 14,
-                          color: tokens.mutedText,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          expiresIn,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                _QualityChip(score: signal.qualityScore),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  signal.posterNameSnapshot,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
+                if (signal.posterVerifiedSnapshot) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.verified,
+                    size: 14,
+                    color: colorScheme.primary,
+                  ),
+                ],
               ],
             ),
           ],
@@ -794,7 +712,7 @@ class _ReasoningCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(AppIcons.lightbulb_outline, color: colorScheme.primary),
+                Icon(Icons.lightbulb_outline, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Trader reasoning',
@@ -854,7 +772,7 @@ class _LockedReasoningCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(AppIcons.lock_outline, color: colorScheme.primary),
+                Icon(Icons.lock_outline, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Trader reasoning',
@@ -922,13 +840,11 @@ class _SignalStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueColor,
-    this.icon,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
-  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -937,28 +853,13 @@ class _SignalStat extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 58,
-          child: Row(
-            children: [
-              if (icon != null)
-                Icon(
-                  icon,
-                  size: 14,
-                  color: tokens.mutedText,
-                ),
-              if (icon != null) const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: tokens.mutedText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          width: 42,
+          child: Text(
+            label,
+            style: textTheme.labelSmall?.copyWith(
+              color: tokens.mutedText,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -1005,6 +906,26 @@ class _Pill extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+    );
+  }
+}
+
+class _QualityChip extends StatelessWidget {
+  const _QualityChip({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = score >= 80
+        ? Colors.green
+        : score >= 50
+            ? Colors.orange
+            : Colors.grey;
+    return Chip(
+      label: Text('Quality $score'),
+      backgroundColor: color.withOpacity(0.12),
+      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w600),
     );
   }
 }
@@ -1079,20 +1000,16 @@ Color _statusColor(String status, ColorScheme colorScheme, AppThemeTokens tokens
   return tokens.warning;
 }
 
-Color _outcomeColor(
-  String outcome,
-  ColorScheme colorScheme,
-  AppThemeTokens tokens,
-) {
-  switch (outcome.toUpperCase()) {
+Color _outcomeColor(String outcome, ColorScheme colorScheme) {
+  switch (outcome) {
     case 'TP':
-      return tokens.success;
+      return Colors.green;
     case 'SL':
-      return colorScheme.error;
+      return Colors.red;
     case 'BE':
-      return tokens.mutedText;
+      return Colors.grey;
     case 'PARTIAL':
-      return tokens.warning;
+      return Colors.orange;
     default:
       return colorScheme.primary;
   }

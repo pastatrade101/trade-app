@@ -11,9 +11,6 @@ import '../../home/presentation/home_shell.dart';
 import '../../onboarding/presentation/onboarding_router.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../app/app_theme.dart';
-import '../../../screens/terms_screen.dart';
-import '../../../services/terms_service.dart';
-import '../../../services/analytics_service.dart';
 import 'auth_screen.dart';
 import 'email_verification_screen.dart';
 
@@ -26,7 +23,6 @@ class AuthGate extends ConsumerWidget {
 
     ref.listen(authStateProvider, (previous, next) {
       final user = next.value;
-      final previousUid = previous?.value?.uid;
       if (user != null) {
         final firebaseUser = FirebaseAuth.instance.currentUser;
         if (firebaseUser != null) {
@@ -37,24 +33,6 @@ class AuthGate extends ConsumerWidget {
           );
         }
         unawaited(ref.read(userRepositoryProvider).ensureUserDoc(user.uid));
-        unawaited(AnalyticsService.instance.setUserId(user.uid));
-        if (previousUid != user.uid) {
-          final membershipService = ref.read(membershipServiceProvider);
-          final membershipStream =
-              membershipService.watchMembership(user.uid);
-          ref.read(notificationServiceProvider).startPremiumSessionsTopicSync(
-                uid: user.uid,
-                membershipStream: membershipStream,
-                membershipService: membershipService,
-              );
-        }
-      } else if (previousUid != null) {
-        unawaited(
-          ref
-              .read(notificationServiceProvider)
-              .resetUserSession(uid: previousUid),
-        );
-        unawaited(AnalyticsService.instance.setUserId(null));
       }
     });
     ref.listen(currentUserProvider, (previous, next) {
@@ -65,24 +43,10 @@ class AuthGate extends ConsumerWidget {
       final prevProfile = previous?.value;
       if (prevProfile != null &&
           prevProfile.uid == profile.uid &&
-          prevProfile.notifyNewSignals == profile.notifyNewSignals &&
-          prevProfile.notifAnnouncements == profile.notifAnnouncements &&
-          prevProfile.role == profile.role) {
+          prevProfile.notifyNewSignals == profile.notifyNewSignals) {
         return;
       }
       unawaited(_syncNotificationTopics(ref, profile));
-      unawaited(_syncSignalTopics(ref, traders: null));
-      unawaited(_syncAnalyticsUser(ref, profile));
-    });
-    ref.listen(userMembershipProvider, (previous, next) {
-      unawaited(_syncSignalTopics(ref, traders: null));
-      final profile = ref.read(currentUserProvider).value;
-      if (profile != null) {
-        unawaited(_syncAnalyticsUser(ref, profile));
-      }
-    });
-    ref.listen(supportTradersProvider, (previous, next) {
-      unawaited(_syncSignalTopics(ref, traders: next.value));
     });
 
     return authState.when(
@@ -97,10 +61,7 @@ class AuthGate extends ConsumerWidget {
         return profileState.when(
           data: (profile) {
             if (profile == null) {
-              return const _LoadingScreen();
-            }
-            if (!_hasAcceptedTerms(profile)) {
-              return const TermsScreen();
+              return HomeShell(user: AppUser.placeholder(user.uid));
             }
             if (profile.role == 'admin') {
               return const AdminShell();
@@ -120,7 +81,10 @@ class AuthGate extends ConsumerWidget {
         );
       },
       loading: () {
-        return const _LoadingScreen();
+        final firebaseUser = FirebaseAuth.instance.currentUser;
+        return firebaseUser == null
+            ? const AuthScreen()
+            : const _LoadingScreen();
       },
       error: (error, _) => _ErrorScreen(message: error.toString()),
     );
@@ -128,52 +92,11 @@ class AuthGate extends ConsumerWidget {
 }
 
 Future<void> _syncNotificationTopics(WidgetRef ref, AppUser profile) async {
-  final notifySignals =
-      profile.notifyNewSignals ?? profile.notifSignals ?? true;
-  final notifyAnnouncements = profile.notifAnnouncements ?? true;
-  if (!notifySignals && !notifyAnnouncements) {
+  final notifyEnabled = profile.notifyNewSignals ?? true;
+  if (!notifyEnabled) {
     return;
   }
   await ref.read(notificationServiceProvider).ensurePermission();
-}
-
-Future<void> _syncSignalTopics(
-  WidgetRef ref, {
-  List<AppUser>? traders,
-}) async {
-  final profile = ref.read(currentUserProvider).value;
-  if (profile == null) {
-    return;
-  }
-  final notifySignals =
-      profile.notifyNewSignals ?? profile.notifSignals ?? true;
-  final traderList =
-      traders ?? ref.read(supportTradersProvider).value ?? const <AppUser>[];
-  final traderUids = traderList
-      .map((trader) => trader.uid)
-      .where((uid) => uid.isNotEmpty)
-      .toList();
-  if (traderUids.isEmpty) {
-    return;
-  }
-  final enabled = notifySignals;
-  if (enabled) {
-    await ref.read(notificationServiceProvider).ensurePermission();
-  }
-  await ref.read(notificationServiceProvider).syncTraderTopics(
-        traderUids: traderUids,
-        enabled: enabled,
-      );
-}
-
-Future<void> _syncAnalyticsUser(WidgetRef ref, AppUser profile) async {
-  final membership = ref.read(userMembershipProvider).value;
-  final membershipService = ref.read(membershipServiceProvider);
-  final isPremium = membershipService.isPremiumActive(membership);
-  await AnalyticsService.instance.setUserId(profile.uid);
-  await AnalyticsService.instance.setUserProperty('role', profile.role);
-  await AnalyticsService.instance
-      .setUserProperty('membership', isPremium ? 'premium' : 'free');
 }
 
 class _LoadingScreen extends StatelessWidget {
@@ -191,7 +114,7 @@ class _LoadingScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'MarketResolve TZ',
+                'MarketResolve',
                 style: textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -261,9 +184,4 @@ class _ProfileFallbackHomeState extends State<_ProfileFallbackHome> {
   Widget build(BuildContext context) {
     return HomeShell(user: AppUser.placeholder(widget.uid));
   }
-}
-
-bool _hasAcceptedTerms(AppUser profile) {
-  return profile.termsAccepted == true &&
-      profile.termsVersion == TermsService.termsVersion;
 }

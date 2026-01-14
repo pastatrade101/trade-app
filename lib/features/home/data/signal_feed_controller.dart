@@ -6,36 +6,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/signal.dart';
 import '../../../core/repositories/signal_repository.dart';
+import '../../../core/models/trading_session_config.dart';
 
 class SignalFeedFilter {
   final String? session;
   final String? pair;
-  static const Object _unset = Object();
+  final String? direction;
 
   const SignalFeedFilter({
     this.session,
     this.pair,
+    this.direction,
   });
 
   SignalFeedFilter copyWith({
     String? session,
-    Object? pair = _unset,
+    String? pair,
+    String? direction,
   }) {
     return SignalFeedFilter(
       session: session ?? this.session,
-      pair: pair == _unset ? this.pair : pair as String?,
+      pair: pair ?? this.pair,
+      direction: direction ?? this.direction,
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    return other is SignalFeedFilter &&
-        other.session == session &&
-        other.pair == pair;
-  }
-
-  @override
-  int get hashCode => Object.hash(session, pair);
 }
 
 class SignalFeedState {
@@ -67,41 +61,42 @@ class SignalFeedState {
 }
 
 final signalFeedFilterProvider = StateProvider<SignalFeedFilter>((ref) {
-  return const SignalFeedFilter();
+  return SignalFeedFilter(session: tradingSessionKeys.first);
 });
 
-final signalFeedControllerProvider = StateNotifierProvider.family<
-    SignalFeedController,
-    AsyncValue<SignalFeedState>,
-    SignalFeedFilter>((ref, filter) {
+final signalFeedControllerProvider =
+    StateNotifierProvider<SignalFeedController, AsyncValue<SignalFeedState>>(
+        (ref) {
   return SignalFeedController(
     ref.read(signalRepositoryProvider),
-    filter,
+    ref,
   );
 });
 
 class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
-  SignalFeedController(this._repository, this._filter)
+  SignalFeedController(this._repository, this._ref)
       : super(const AsyncValue.loading()) {
     loadInitial();
   }
 
   final SignalRepository _repository;
-  final SignalFeedFilter _filter;
+  final Ref _ref;
 
   Future<void> loadInitial() async {
     state = const AsyncValue.loading();
     try {
+      final filter = _ref.read(signalFeedFilterProvider);
       final page = await _repository.fetchSignalsPage(
         limit: 20,
-        session: _filter.session,
-        pair: _filter.pair,
+        session: filter.session,
+        pair: filter.pair,
+        direction: filter.direction,
       );
       state = AsyncValue.data(SignalFeedState(
         signals: page.signals,
         lastDoc: page.lastDoc,
         hasMore: page.hasMore,
-        filter: _filter,
+        filter: filter,
       ));
     } catch (error, stack) {
       state = AsyncValue.error(error, stack);
@@ -114,17 +109,19 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
       return;
     }
     try {
+      final filter = _ref.read(signalFeedFilterProvider);
       final page = await _repository.fetchSignalsPage(
         limit: 20,
         startAfter: current.lastDoc,
-        session: _filter.session,
-        pair: _filter.pair,
+        session: filter.session,
+        pair: filter.pair,
+        direction: filter.direction,
       );
       state = AsyncValue.data(current.copyWith(
         signals: [...current.signals, ...page.signals],
         lastDoc: page.lastDoc,
         hasMore: page.hasMore,
-        filter: _filter,
+        filter: filter,
       ));
     } catch (error, stack) {
       state = AsyncValue.error(error, stack);

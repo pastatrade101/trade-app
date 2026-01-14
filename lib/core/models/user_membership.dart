@@ -7,8 +7,6 @@ class UserMembership {
   final DateTime? expiresAt;
   final String? lastPaymentRef;
   final DateTime? updatedAt;
-  final String? source;
-  final bool trialUsed;
 
   const UserMembership({
     required this.tier,
@@ -17,8 +15,6 @@ class UserMembership {
     required this.expiresAt,
     required this.lastPaymentRef,
     required this.updatedAt,
-    this.source,
-    this.trialUsed = false,
   });
 
   factory UserMembership.free() {
@@ -29,8 +25,6 @@ class UserMembership {
       expiresAt: null,
       lastPaymentRef: null,
       updatedAt: null,
-      source: null,
-      trialUsed: false,
     );
   }
 
@@ -45,8 +39,6 @@ class UserMembership {
       expiresAt: timestampToDate(json['expiresAt']),
       lastPaymentRef: json['lastPaymentRef'],
       updatedAt: timestampToDate(json['updatedAt']),
-      source: json['source']?.toString(),
-      trialUsed: json['trialUsed'] == true,
     );
   }
 
@@ -58,8 +50,6 @@ class UserMembership {
       'expiresAt': dateToTimestamp(expiresAt),
       'lastPaymentRef': lastPaymentRef,
       'updatedAt': dateToTimestamp(updatedAt),
-      'source': source,
-      'trialUsed': trialUsed,
     };
   }
 

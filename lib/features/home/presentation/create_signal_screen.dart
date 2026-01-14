@@ -9,11 +9,8 @@ import '../../../core/config/app_constants.dart';
 import '../../../core/models/signal.dart';
 import '../../../core/models/trading_session_config.dart';
 import '../../../core/models/vote_aggregate.dart';
-import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/utils/validators.dart';
-import '../../../services/analytics_service.dart';
-import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class CreateSignalScreen extends ConsumerStatefulWidget {
   const CreateSignalScreen({super.key});
@@ -219,13 +216,6 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
 
     try {
       await ref.read(signalRepositoryProvider).createSignal(signal);
-      AnalyticsService.instance.logEvent(
-        'signal_create',
-        params: {
-          'pair': signal.pair,
-          'direction': signal.direction,
-        },
-      );
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -244,7 +234,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value;
     final isActiveTrader =
-        user != null && isTrader(user.role) && user.traderStatus == 'active';
+        user != null && user.role == 'trader' && user.traderStatus == 'active';
 
     if (!isActiveTrader) {
       return const Scaffold(
@@ -380,7 +370,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _pickImage,
-                icon: const Icon(AppIcons.image),
+                icon: const Icon(Icons.image),
                 label: Text(_imageFile == null
                     ? 'Upload chart image'
                     : 'Replace image'),
