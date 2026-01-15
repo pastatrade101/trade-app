@@ -12,7 +12,7 @@ const AZAMPAY_CONFIG = {
   client_secret:
     "VcttCrIHmXlf7NeHe7KuvLk3Jgr+ajH8Dfyd5X7kUjwzzRnUNFQEyErdFGpGYldhs/aOEKaz0+1jQZmSNVWxaVxxKkgon84kFoON1fJBj+eJprWB8JyqkkABze7naMYQ+8VQ++biRkXzWhAvN7vrVvowa9pzwTVFdpULgm4y7F+dP0oyZI56dStIGt1sgGpal2XFTnYc+iGDn8WOPkR4tsffy9mg5pe3Rm753k3go5rd+gJnKJf3ntNeH/1O7kZB0z+rYxTIl3yN5ZvRlApYyjBeXrd78/899qvjUDUBv7U6M9u1rjxhaY0MigYd+PX8di1ubkbvp3MGb4bk+l9FGNr+D+W9kPM/pGEnIzirVA5S66ItMZBBTWj3H7woiRorJF7W101f5jlnp5mpsfaZXHvD4slGRGFj1XP3V23ihdOvqi/F8hEhLIylnV34r09pt+WBdFk6cMw+7kBRR3XxMF/U4hW3PvFea7TfXziIiLOC9gDtPn7ce6QWrOdTrgJsWVTIpvzdHAjKP0lv66Z0AHQFkB1G+vFMCaH2GaXuFb637pnt1QYC5JK3hgzaiNU+8z5y2EngHu+KRiHUnF1najykjANiNlHAV9BIU4I4hIorKs2gvodrypl0eIigx7jSCPKPKn3byN9J7YnDdlomyRtK/ncad3co2CHyAqrokR0=",
 };
-const CHECKOUT_URL = "https://creatorstores.xyz/api/pastory/azampay/request/payment";
+const CHECKOUT_URL = "https://sandbox.azampay.co.tz/azampay/mno/checkout";
 const AUTH_URL =
   "https://authenticator-sandbox.azampay.co.tz/AppRegistration/GenerateToken";
 
@@ -43,6 +43,44 @@ function mapProviderToAzam(providerLower) {
 }
 
 // ===================== HELPERS =====================
+const SENSITIVE_LOG_KEYS = new Set([
+  "accountNumber",
+  "msisdn",
+  "phoneNumber",
+  "accessToken",
+  "clientSecret",
+  "authorization",
+  "Authorization",
+]);
+
+function maskValue(value, visible = 4) {
+  const str = String(value || "");
+  if (!str) {
+    return str;
+  }
+  if (str.length <= visible) {
+    return "*".repeat(str.length);
+  }
+  return `${"*".repeat(str.length - visible)}${str.slice(-visible)}`;
+}
+
+function redactForLog(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactForLog(item));
+  }
+  if (value && typeof value === "object") {
+    const next = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (SENSITIVE_LOG_KEYS.has(key)) {
+        next[key] = maskValue(val);
+      } else {
+        next[key] = redactForLog(val);
+      }
+    }
+    return next;
+  }
+  return value;
+}
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization || "";
@@ -212,6 +250,11 @@ async function getAzamPayToken() {
     throw new Error("AzamPay config is missing (app_name, client_id, client_secret)");
   }
   try {
+    console.log("AzamPay auth request:", {
+      url: AUTH_URL,
+      appName,
+      clientId: maskValue(clientId, 6),
+    });
     const response = await axios.post(
       AUTH_URL,
       {
@@ -226,9 +269,16 @@ async function getAzamPayToken() {
     if (!token) {
       throw new Error("AzamPay token missing");
     }
+    console.log("AzamPay auth response:", {
+      status: response.status,
+      hasToken: Boolean(token),
+    });
     return token;
   } catch (error) {
-    console.error("Error generating token:", error.response?.data || error.message);
+    console.error(
+      "Error generating token:",
+      redactForLog(error.response?.data || error.message)
+    );
     throw new Error("Failed to authenticate with AzamPay");
   }
 }
@@ -305,7 +355,7 @@ exports.initiatePremiumCheckout = functions.https.onRequest(async (req, res) => 
     }
 
     const { jwtToken, accountNumber, provider, productId } = req.body || {};
-    console.log("initiatePremiumCheckout body:", JSON.stringify(req.body));
+    console.log("initiatePremiumCheckout body:", redactForLog(req.body));
 
     if (!jwtToken) {
       return res.status(400).json({ success: false, message: "Missing jwtToken" });
@@ -385,13 +435,20 @@ exports.initiatePremiumCheckout = functions.https.onRequest(async (req, res) => 
       },
     };
 
-    console.log("Checkout payload:", checkoutPayload);
+    console.log("AzamPay checkout request:", {
+      url: CHECKOUT_URL,
+      payload: redactForLog(checkoutPayload),
+    });
 
     const azamRes = await axios.post(CHECKOUT_URL, checkoutPayload, {
       headers: {
         Authorization: `Bearer ${azamToken}`,
         "Content-Type": "application/json",
       },
+    });
+    console.log("AzamPay checkout response:", {
+      status: azamRes.status,
+      data: redactForLog(azamRes.data),
     });
 
     const providerRef =
@@ -413,7 +470,10 @@ exports.initiatePremiumCheckout = functions.https.onRequest(async (req, res) => 
       azamResponse: azamRes.data,
     });
   } catch (error) {
-    console.error("Error processing premium payment:", error.response?.data || error.message);
+    console.error(
+      "Error processing premium payment:",
+      redactForLog(error.response?.data || error.message)
+    );
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -422,7 +482,7 @@ exports.initiatePremiumCheckout = functions.https.onRequest(async (req, res) => 
 async function handleAzamPayPremiumWebhook(req, res) {
   try {
     const body = req.body || {};
-    console.log("AzamPay callback:", JSON.stringify(body));
+    console.log("AzamPay callback:", redactForLog(body));
 
     const externalId =
       body.utilityref ||
@@ -765,6 +825,7 @@ exports.azamPay = functions.https.onRequest(async (req, res) => {
 exports.processOrder = functions.https.onRequest(async (req, res) => {
   try {
     const body = req.body || {};
+    console.log("processOrder body:", redactForLog(body));
     const {
       amount,
       externalId,
@@ -813,7 +874,10 @@ exports.processOrder = functions.https.onRequest(async (req, res) => {
       provider: normalizedProvider,
     };
 
-    console.log("Checkout Data:", requestData);
+    console.log("AzamPay checkout request (processOrder):", {
+      url: CHECKOUT_URL,
+      payload: redactForLog(requestData),
+    });
 
     const tokenToUse = azamToken || (await getAzamPayToken());
     const headers = {
@@ -822,8 +886,10 @@ exports.processOrder = functions.https.onRequest(async (req, res) => {
     };
 
     const response = await axios.post(CHECKOUT_URL, requestData, { headers });
-
-    console.log("Checkout Response:", response.data);
+    console.log("AzamPay checkout response (processOrder):", {
+      status: response.status,
+      data: redactForLog(response.data),
+    });
 
     if (response.status === 200) {
       const responseData = response.data || {};
@@ -843,7 +909,10 @@ exports.processOrder = functions.https.onRequest(async (req, res) => {
       .status(response.status)
       .json({ success: false, message: "Request failed" });
   } catch (error) {
-    console.error("Error processing order:", error.response?.data || error.message);
+    console.error(
+      "Error processing order:",
+      redactForLog(error.response?.data || error.message)
+    );
     return res
       .status(500)
       .json({ success: false, message: "Internal server error" });
