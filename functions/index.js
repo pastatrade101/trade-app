@@ -131,6 +131,49 @@ function chunkArray(list, size) {
   return chunks;
 }
 
+async function getUserTokens(uid) {
+  if (!uid) {
+    return [];
+  }
+  const tokensSnap = await db
+    .collection("users")
+    .doc(uid)
+    .collection("tokens")
+    .get();
+  return tokensSnap.docs.map((doc) => doc.id).filter(Boolean);
+}
+
+async function resolveMemberName(uid) {
+  if (!uid) {
+    return "Member";
+  }
+  const snap = await db.collection("users").doc(uid).get();
+  if (!snap.exists) {
+    return "Member";
+  }
+  const data = snap.data() || {};
+  return (
+    data.displayName ||
+    data.username ||
+    data.fullName ||
+    data.phoneNumber ||
+    data.email ||
+    "Member"
+  );
+}
+
+async function resolveProductTitle(productId) {
+  if (!productId) {
+    return "Premium";
+  }
+  const snap = await db.collection("products").doc(productId).get();
+  if (!snap.exists) {
+    return String(productId);
+  }
+  const data = snap.data() || {};
+  return String(data.title || productId);
+}
+
 async function sendToTokens(tokens, message) {
   if (!tokens.length) {
     return { successCount: 0, failureCount: 0 };
@@ -162,6 +205,10 @@ async function notifyAdminsOnRevenue({
   productId,
   uid,
   intentId,
+  memberName,
+  planTitle,
+  billingPeriod,
+  durationDays,
 }) {
   const adminsSnap = await db.collection("users").where("role", "==", "admin").get();
   if (adminsSnap.empty) {
@@ -182,10 +229,14 @@ async function notifyAdminsOnRevenue({
     return;
   }
 
+  const safeMember = memberName || "Member";
+  const safePlan = planTitle || productId || "Premium";
+  const periodLabel = billingPeriod ? ` • ${billingPeriod}` : "";
+  const durationLabel = durationDays ? ` • ${durationDays}d` : "";
   await sendToTokens(tokens, {
     notification: {
       title: "New premium subscription",
-      body: `${amount} ${currency} • ${productId}`,
+      body: `${safeMember} • ${safePlan} • ${amount} ${currency}${periodLabel}${durationLabel}`,
     },
     data: {
       type: "revenue",
@@ -194,6 +245,10 @@ async function notifyAdminsOnRevenue({
       amount: String(amount || ""),
       currency: String(currency || ""),
       productId: String(productId || ""),
+      memberName: String(memberName || ""),
+      planTitle: String(planTitle || ""),
+      billingPeriod: String(billingPeriod || ""),
+      durationDays: String(durationDays || ""),
     },
   });
 }
@@ -586,6 +641,8 @@ async function handleAzamPayPremiumWebhook(req, res) {
 
       const amountValue = Number(intent?.amount || body.amount || 0);
       const currencyValue = intent?.currency || body.currency || "TZS";
+      const memberName = await resolveMemberName(intent?.uid);
+      const planTitle = await resolveProductTitle(intent?.productId);
       const successRef = db.collection("success_payment").doc(intentRef.id);
       let successCreated = false;
       try {
@@ -621,10 +678,14 @@ async function handleAzamPayPremiumWebhook(req, res) {
         await db.collection("admin_notifications").add({
           type: "revenue",
           title: "New premium subscription",
-          message: `${amountValue} ${currencyValue} • ${intent?.productId || ""}`,
+          message: `${memberName} • ${planTitle} • ${amountValue} ${currencyValue}`,
           amount: amountValue,
           currency: currencyValue,
           productId: intent?.productId || null,
+          planTitle,
+          billingPeriod: intent?.billingPeriod || null,
+          durationDays: intent?.durationDays || null,
+          memberName,
           uid: intent?.uid || null,
           intentId: intentRef.id,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -637,6 +698,10 @@ async function handleAzamPayPremiumWebhook(req, res) {
           productId: intent?.productId,
           uid: intent?.uid,
           intentId: intentRef.id,
+          memberName,
+          planTitle,
+          billingPeriod: intent?.billingPeriod,
+          durationDays: intent?.durationDays,
         });
       }
       return res.status(200).send("Callback received");
@@ -1130,6 +1195,7 @@ exports.expireMembershipsDaily = functions.pubsub
 
     const batch = db.batch();
     let count = 0;
+    const expiredUsers = [];
     snapshot.docs.forEach((doc) => {
       const data = doc.data() || {};
       const expiresAt = data?.membership?.expiresAt;
@@ -1146,11 +1212,37 @@ exports.expireMembershipsDaily = functions.pubsub
           { merge: true }
         );
         count++;
+        expiredUsers.push({
+          uid: doc.id,
+          name:
+            data.displayName ||
+            data.username ||
+            data.fullName ||
+            data.phoneNumber ||
+            data.email ||
+            "Member",
+        });
       }
     });
 
     if (count > 0) {
       await batch.commit();
+    }
+    for (const user of expiredUsers) {
+      const tokens = await getUserTokens(user.uid);
+      if (!tokens.length) {
+        continue;
+      }
+      await sendToTokens(tokens, {
+        notification: {
+          title: "Premium expired",
+          body: "Your premium access has ended. Renew to keep receiving signals.",
+        },
+        data: {
+          type: "membership_expired",
+          uid: String(user.uid || ""),
+        },
+      });
     }
     console.log("expireMembershipsDaily downgraded:", count);
     return null;
