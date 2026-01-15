@@ -7,6 +7,7 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/payment_intent.dart';
 import '../../../core/models/product.dart';
+import '../../../core/models/user_membership.dart';
 
 class PaymentStatusScreen extends ConsumerStatefulWidget {
   const PaymentStatusScreen({
@@ -100,6 +101,7 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
+    final membership = ref.watch(userMembershipProvider).value;
     final intentStream =
         ref.read(paymentRepositoryProvider).watchPaymentIntent(widget.intentId);
     return Scaffold(
@@ -109,12 +111,14 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
         builder: (context, snapshot) {
           final intent = snapshot.data;
           final status = intent?.status ?? 'pending';
-          final isPending = intent == null || intent.isPending;
-          final isPaid = intent?.isPaid ?? false;
+          final membershipPaid = _isMembershipPaid(intent, membership);
+          final isPaid = (intent?.isPaid ?? false) || membershipPaid;
           final isFailed = intent?.isFailed ?? false;
+          final isPending = !isPaid && !isFailed;
+          final effectiveStatus = isPaid ? 'paid' : status;
 
           _syncTiming(intent);
-          _handleStatusChange(context, status);
+          _handleStatusChange(context, effectiveStatus);
 
           final productStream = intent != null
               ? ref.read(productRepositoryProvider).watchProduct(intent.productId)
@@ -242,6 +246,24 @@ class _PaymentStatusScreenState extends ConsumerState<PaymentStatusScreen> {
       return null;
     }
     return value.clamp(0.0, 1.0);
+  }
+
+  bool _isMembershipPaid(
+    PaymentIntent? intent,
+    UserMembership? membership,
+  ) {
+    if (intent == null || membership == null) {
+      return false;
+    }
+    if (!membership.isPremiumActive()) {
+      return false;
+    }
+    final anchor = membership.updatedAt ?? membership.startedAt;
+    final createdAt = intent.createdAt;
+    if (anchor == null || createdAt == null) {
+      return false;
+    }
+    return !anchor.isBefore(createdAt.subtract(const Duration(seconds: 5)));
   }
 }
 

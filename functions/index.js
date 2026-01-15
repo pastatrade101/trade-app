@@ -425,13 +425,13 @@ exports.initiatePremiumCheckout = functions.https.onRequest(async (req, res) => 
 
     const checkoutPayload = {
       accountNumber: String(accountNumber),
-      amount: String(product.amount),
-      currency: product.currency,
-      externalId,
+      amount: Number(product.amount),
+      currency: String(product.currency),
+      externalId: String(externalId),
       provider: azamProvider,
       additionalProperties: {
-        property1: uid,
-        property2: intentId,
+        property1: uid || null,
+        property2: intentId || null,
       },
     };
 
@@ -493,6 +493,14 @@ async function handleAzamPayPremiumWebhook(req, res) {
       null;
     const additional = body.additionalProperties || {};
     const intentId = additional.property2 || null;
+    const providerRef =
+      body.reference ||
+      body.externalreference ||
+      body.externalReference ||
+      body.transid ||
+      body.transactionId ||
+      body.transaction_id ||
+      null;
 
     const statusRaw =
       body.transactionstatus ||
@@ -531,8 +539,26 @@ async function handleAzamPayPremiumWebhook(req, res) {
       }
     }
 
+    if (!intentRef && providerRef) {
+      const snapshot = await db
+        .collection("payment_intents")
+        .where("providerRef", "==", providerRef)
+        .limit(1)
+        .get();
+
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        intentRef = doc.ref;
+        intent = doc.data() || {};
+      }
+    }
+
     if (!intentRef) {
-      console.error("Payment intent not found:", { externalId, intentId });
+      console.error("Payment intent not found:", {
+        externalId,
+        intentId,
+        providerRef,
+      });
       return res.status(404).send("Payment intent not found");
     }
 
@@ -861,16 +887,24 @@ exports.processOrder = functions.https.onRequest(async (req, res) => {
       });
     }
 
+    const amountValue = Number(amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "amount must be a positive number",
+      });
+    }
+
     const requestData = {
-      accountNumber,
+      accountNumber: String(accountNumber),
       additionalProperties: {
-        property1: userId,
-        property2: bookID,
+        property1: userId || null,
+        property2: bookID || null,
         source: "pastory",
       },
-      amount,
+      amount: amountValue,
       currency: "TZS",
-      externalId,
+      externalId: String(externalId || ""),
       provider: normalizedProvider,
     };
 
