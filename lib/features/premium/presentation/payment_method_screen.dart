@@ -9,9 +9,14 @@ import '../../../core/widgets/app_toast.dart';
 import 'payment_status_screen.dart';
 
 class PaymentMethodScreen extends ConsumerStatefulWidget {
-  const PaymentMethodScreen({super.key, required this.product});
+  const PaymentMethodScreen({
+    super.key,
+    required this.product,
+    this.initialProvider,
+  });
 
   final Product product;
+  final String? initialProvider;
 
   @override
   ConsumerState<PaymentMethodScreen> createState() =>
@@ -21,8 +26,14 @@ class PaymentMethodScreen extends ConsumerStatefulWidget {
 class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  String _provider = 'mixx';
+  late String _provider;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _provider = widget.initialProvider ?? 'mixx';
+  }
 
   @override
   void dispose() {
@@ -206,6 +217,13 @@ const _methods = [
     label: 'Tigo Pesa',
     subtitle: 'Authorize on your TigoPesa wallet',
     color: Color(0xFF0033A0),
+    icon: Icons.phone_android,
+  ),
+  _PaymentMethodOption(
+    provider: 'halopesa',
+    label: 'HaloPesa',
+    subtitle: 'Approve the HaloPesa request',
+    color: Color(0xFF00A651),
     icon: Icons.phone_android,
   ),
 ];

@@ -12,6 +12,7 @@ import '../../profile/presentation/profile_screen.dart';
 import '../../testimonials/presentation/testimonials_screen.dart';
 import '../../tips/presentation/create_tip_screen.dart';
 import '../../tips/presentation/tips_screen.dart';
+import '../../auth/presentation/member_onboarding_screen.dart';
 
 final homeTabProvider = StateProvider<int>((ref) => 0);
 
@@ -34,45 +35,13 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
-class UserShell extends ConsumerWidget {
+class UserShell extends ConsumerStatefulWidget {
   const UserShell({required this.user, super.key});
 
   final AppUser user;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final index = ref.watch(homeTabProvider);
-    final isActiveTrader = user.role == 'trader' && user.traderStatus == 'active';
-
-    final pages = [
-      const SignalFeedScreen(),
-      const TestimonialsScreen(),
-      const TipsScreen(),
-      ProfileScreen(user: user),
-    ];
-
-    return Scaffold(
-      body: pages[index],
-      floatingActionButton: isActiveTrader
-          ? FloatingActionButton(
-              onPressed: () => _openCreateOptions(context),
-              child: const Icon(Icons.add),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) =>
-            ref.read(homeTabProvider.notifier).state = value,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Signals'),
-          NavigationDestination(
-              icon: Icon(Icons.format_quote), label: 'Testimonials'),
-          NavigationDestination(icon: Icon(Icons.lightbulb), label: 'Tips'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
-    );
-  }
+  ConsumerState<UserShell> createState() => _UserShellState();
 
   void _openCreateOptions(BuildContext context) {
     showModalBottomSheet<void>(
@@ -140,6 +109,94 @@ class UserShell extends ConsumerWidget {
       },
     );
   }
+}
+
+class _UserShellState extends ConsumerState<UserShell> {
+  bool _profilePromptOpen = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _maybePromptProfile();
+  }
+
+  @override
+  void didUpdateWidget(covariant UserShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user != widget.user) {
+      _maybePromptProfile();
+    }
+  }
+
+  void _maybePromptProfile() {
+    final user = widget.user;
+    final needsProfile = user.role == 'member' &&
+        (user.displayName.trim().isEmpty || user.username.trim().isEmpty);
+
+    if (!needsProfile) {
+      _profilePromptOpen = false;
+      return;
+    }
+    if (_profilePromptOpen) {
+      return;
+    }
+
+    _profilePromptOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => MemberOnboardingScreen(
+            uid: user.uid,
+            lockToComplete: true,
+          ),
+        ),
+      );
+      if (mounted) {
+        _profilePromptOpen = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final index = ref.watch(homeTabProvider);
+    final user = widget.user;
+    final isActiveTrader = user.role == 'trader' && user.traderStatus == 'active';
+
+    final pages = [
+      const SignalFeedScreen(),
+      const TestimonialsScreen(),
+      const TipsScreen(),
+      ProfileScreen(user: user),
+    ];
+
+    return Scaffold(
+      body: pages[index],
+      floatingActionButton: isActiveTrader
+          ? FloatingActionButton(
+              onPressed: () => widget._openCreateOptions(context),
+              child: const Icon(Icons.add),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (value) =>
+            ref.read(homeTabProvider.notifier).state = value,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home), label: 'Signals'),
+          NavigationDestination(
+              icon: Icon(Icons.format_quote), label: 'Testimonials'),
+          NavigationDestination(icon: Icon(Icons.lightbulb), label: 'Tips'),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+
 }
 
 class _CreateOptionCard extends StatelessWidget {

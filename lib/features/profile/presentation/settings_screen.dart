@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/navigation.dart';
 import '../../../app/providers.dart';
 import '../../../core/widgets/app_section_card.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -19,6 +20,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _toggleLoading = false;
   bool _initialized = false;
   bool _testLoading = false;
+  bool _signOutLoading = false;
 
   Future<void> _toggleNotifications(bool value) async {
     if (_toggleLoading) {
@@ -194,14 +196,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const AppSectionTitle(title: 'Account'),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: () async {
-                    await ref.read(authRepositoryProvider).signOut();
-                    if (context.mounted) {
-                      AppToast.success(context, 'Signed out successfully.');
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('Sign out'),
+                  onPressed: _signOutLoading
+                      ? null
+                      : () async {
+                          setState(() => _signOutLoading = true);
+                          try {
+                            await ref.read(authRepositoryProvider).signOut();
+                            if (context.mounted) {
+                              AppToast.success(
+                                  context, 'Signed out successfully.');
+                              rootNavigatorKey.currentState
+                                  ?.popUntil((route) => route.isFirst);
+                            }
+                          } catch (error) {
+                            if (context.mounted) {
+                              AppToast.error(
+                                  context, 'Unable to sign out. Try again.');
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _signOutLoading = false);
+                            }
+                          }
+                        },
+                  child: _signOutLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Sign out'),
                 ),
               ],
             ),

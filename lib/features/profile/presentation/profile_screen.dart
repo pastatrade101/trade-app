@@ -11,9 +11,11 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/signal.dart';
+import '../../../core/models/user_membership.dart';
 import '../../../core/repositories/tip_repository.dart';
 import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/social_links.dart';
+import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_section_card.dart';
 import '../../admin/presentation/admin_panel_screen.dart';
 import '../../admin/presentation/highlight_manager_screen.dart';
@@ -511,6 +513,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ],
+              if (user.role == 'member') ...[
+                const SizedBox(height: 16),
+                _buildAnimatedSection(
+                  start: 0.18,
+                  end: 0.78,
+                  child: _MembershipStatusCard(
+                    membership: user.membership ?? UserMembership.free(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               if (user.role == 'trader') ...[
                 _buildAnimatedSection(
@@ -686,57 +698,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     children: [
                       const AppSectionTitle(title: 'Quick actions'),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const TestimonialsScreen(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.format_quote),
-                              label: const Text('Testimonials'),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PartnersTab(),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: primaryColor,
-                                side: BorderSide(color: primaryColor),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const PartnersTab(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.handshake),
-                              label: const Text('Trusted Brokers'),
-                            ),
-                          ),
-                        ],
+                          );
+                        },
+                        icon: const Icon(Icons.handshake),
+                        label: const Text('Trusted Brokers'),
                       ),
                     ],
                   ),
@@ -1440,6 +1411,197 @@ class _SocialIconButton extends StatelessWidget {
           ),
           child: Icon(icon, size: 20),
         ),
+      ),
+    );
+  }
+}
+
+class _MembershipStatusCard extends StatelessWidget {
+  const _MembershipStatusCard({required this.membership});
+
+  final UserMembership membership;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final now = DateTime.now();
+    final expiresAt = membership.expiresAt;
+    final isPremium = membership.tier == 'premium';
+    final remaining =
+        expiresAt == null ? null : expiresAt.difference(now);
+    final isExpired = remaining != null && remaining.isNegative;
+    final isActive = membership.status == 'active' && isPremium && !isExpired;
+
+    final statusLabel = isActive
+        ? 'Active'
+        : isPremium
+            ? 'Expired'
+            : 'Free';
+    final statusColor =
+        isActive ? tokens.success : isPremium ? tokens.warning : tokens.mutedText;
+
+    final timeLeft = isActive && remaining != null
+        ? formatCountdown(remaining)
+        : '--';
+    final endsOn = expiresAt != null
+        ? formatTanzaniaDateTime(expiresAt, pattern: 'MMM d, yyyy')
+        : '--';
+
+    final message = isActive
+        ? 'Your premium access is active.'
+        : isPremium
+            ? 'Your premium plan has ended. Renew to keep full access.'
+            : 'No active membership. Choose a plan to unlock premium signals.';
+
+    final textColor = Colors.black87;
+    final mutedColor = Colors.black54;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: tokens.shadow,
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: tokens.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightSurfaceAlt,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: tokens.border),
+                ),
+                child: Icon(
+                  Icons.workspace_premium,
+                  color: tokens.heroStart,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Membership',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isPremium ? 'Premium plan' : 'Free plan',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: mutedColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: textTheme.bodySmall?.copyWith(color: mutedColor),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MembershipInfoTile(
+                  label: 'Time left',
+                  value: timeLeft,
+                  textColor: textColor,
+                  mutedColor: mutedColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MembershipInfoTile(
+                  label: 'Ends on',
+                  value: endsOn,
+                  textColor: textColor,
+                  mutedColor: mutedColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MembershipInfoTile extends StatelessWidget {
+  const _MembershipInfoTile({
+    required this.label,
+    required this.value,
+    required this.textColor,
+    required this.mutedColor,
+  });
+
+  final String label;
+  final String value;
+  final Color textColor;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: textColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: textTheme.labelSmall?.copyWith(
+              color: mutedColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: textTheme.titleSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -9,9 +9,14 @@ import '../../../core/utils/validators.dart';
 import '../../home/presentation/home_shell.dart';
 
 class MemberOnboardingScreen extends ConsumerStatefulWidget {
-  const MemberOnboardingScreen({super.key, required this.uid});
+  const MemberOnboardingScreen({
+    super.key,
+    required this.uid,
+    this.lockToComplete = false,
+  });
 
   final String uid;
+  final bool lockToComplete;
 
   @override
   ConsumerState<MemberOnboardingScreen> createState() =>
@@ -81,6 +86,10 @@ class _MemberOnboardingScreenState
       );
       await userRepo.saveUserProfile(profile);
       if (mounted) {
+        if (widget.lockToComplete) {
+          Navigator.of(context).pop();
+          return;
+        }
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeShell()),
           (_) => false,
@@ -99,43 +108,49 @@ class _MemberOnboardingScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Member onboarding')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _displayNameController,
-                decoration: const InputDecoration(labelText: 'Display name'),
-                validator: (value) => validateRequired(value, 'Display name'),
-              ),
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
-                validator: validateUsername,
-              ),
-              TextFormField(
-                controller: _countryController,
-                decoration:
-                    const InputDecoration(labelText: 'Country (optional)'),
-              ),
-              const SizedBox(height: 16),
-              if (_error != null)
-                Text(_error!, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const CircularProgressIndicator()
-                      : const Text('Finish'),
+    return WillPopScope(
+      onWillPop: () async => !widget.lockToComplete,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Complete your profile'),
+          automaticallyImplyLeading: !widget.lockToComplete,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _displayNameController,
+                  decoration: const InputDecoration(labelText: 'Display name'),
+                  validator: (value) => validateRequired(value, 'Display name'),
                 ),
-              ),
-            ],
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(labelText: 'Username'),
+                  validator: validateUsername,
+                ),
+                TextFormField(
+                  controller: _countryController,
+                  decoration:
+                      const InputDecoration(labelText: 'Country (optional)'),
+                ),
+                const SizedBox(height: 16),
+                if (_error != null)
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _submit,
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : const Text('Finish'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

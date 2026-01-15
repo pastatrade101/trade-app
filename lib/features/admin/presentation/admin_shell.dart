@@ -1382,9 +1382,17 @@ class _UserItemTile extends ConsumerWidget {
                   value: role,
                   onChanged: (value) {
                     if (value != null && value != normalizeRole(user.role)) {
-                      ref.read(userRepositoryProvider).updateUser(user.uid, {
-                        'role': value,
-                      });
+                      final update = <String, dynamic>{'role': value};
+                      if (value == 'trader') {
+                        update['traderStatus'] = 'active';
+                        update['rejectReason'] = null;
+                      } else {
+                        update['traderStatus'] = 'none';
+                      }
+                      ref.read(userRepositoryProvider).updateUser(
+                        user.uid,
+                        update,
+                      );
                     }
                   },
                 ),

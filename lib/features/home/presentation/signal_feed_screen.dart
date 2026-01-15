@@ -50,10 +50,9 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
     final sessions = enabledSessions.isNotEmpty
         ? enabledSessions
         : TradingSessionConfig.fallback().enabledSessionsOrdered();
+    final baseFilter = ref.watch(signalFeedFilterProvider);
     _scheduleTabSync(sessions);
 
-    final feedState = ref.watch(signalFeedControllerProvider);
-    final controller = ref.read(signalFeedControllerProvider.notifier);
     final tabController = _tabController;
 
     if (tabController == null) {
@@ -128,9 +127,7 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
             ),
             SliverToBoxAdapter(
               child: SignalFilters(
-                onChanged: () => ref
-                    .read(signalFeedControllerProvider.notifier)
-                    .loadInitial(),
+                onChanged: () {},
               ),
             ),
             SliverPersistentHeader(
@@ -141,11 +138,12 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
         },
         body: TabBarView(
           controller: tabController,
-          children: List.generate(_sessions.length, (_) {
+          children: List.generate(_sessions.length, (index) {
+            final session = _sessions[index];
+            final filter = baseFilter.copyWith(session: session.key);
             return _SignalFeedList(
-              feedState: feedState,
-              onRefresh: controller.loadInitial,
-              onLoadMore: controller.loadMore,
+              key: ValueKey('signals_${session.key}_${baseFilter.pair}'),
+              filter: filter,
             );
           }),
         ),
@@ -166,15 +164,6 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
 
   void _applyTabSessions(List<TradingSession> sessions, List<String> keys) {
     final controller = TabController(length: keys.length, vsync: this);
-    controller.addListener(() {
-      if (controller.indexIsChanging) {
-        return;
-      }
-      final session = _sessionKeys[controller.index];
-      ref.read(signalFeedFilterProvider.notifier).state =
-          ref.read(signalFeedFilterProvider).copyWith(session: session);
-      ref.read(signalFeedControllerProvider.notifier).loadInitial();
-    });
 
     if (!mounted) {
       controller.dispose();
@@ -191,11 +180,9 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
     if (_sessionKeys.isNotEmpty) {
       Future(() {
         if (!mounted) return;
-        ref.read(signalFeedFilterProvider.notifier).state =
-            ref.read(signalFeedFilterProvider).copyWith(
-                  session: _sessionKeys.first,
-                );
-        ref.read(signalFeedControllerProvider.notifier).loadInitial();
+        if (_tabController?.index != 0) {
+          _tabController?.index = 0;
+        }
       });
     }
   }
@@ -471,31 +458,35 @@ class _HighlightChip extends StatelessWidget {
   }
 }
 
-class _SignalFeedList extends StatefulWidget {
+class _SignalFeedList extends ConsumerStatefulWidget {
   const _SignalFeedList({
-    required this.feedState,
-    required this.onRefresh,
-    required this.onLoadMore,
+    super.key,
+    required this.filter,
   });
 
-  final AsyncValue<SignalFeedState> feedState;
-  final Future<void> Function() onRefresh;
-  final Future<void> Function() onLoadMore;
+  final SignalFeedFilter filter;
 
   @override
-  State<_SignalFeedList> createState() => _SignalFeedListState();
+  ConsumerState<_SignalFeedList> createState() => _SignalFeedListState();
 }
 
-class _SignalFeedListState extends State<_SignalFeedList> {
+class _SignalFeedListState extends ConsumerState<_SignalFeedList>
+    with AutomaticKeepAliveClientMixin {
   bool _isLoadingMore = false;
 
+  @override
+  bool get wantKeepAlive => true;
+
   Future<void> _maybeLoadMore(bool hasMore) async {
-    if (_isLoadingMore || !hasMore || widget.feedState.isLoading) {
+    final feedState = ref.read(signalFeedControllerProvider(widget.filter));
+    if (_isLoadingMore || !hasMore || feedState.isLoading) {
       return;
     }
     setState(() => _isLoadingMore = true);
     try {
-      await widget.onLoadMore();
+      await ref
+          .read(signalFeedControllerProvider(widget.filter).notifier)
+          .loadMore();
     } finally {
       if (mounted) {
         setState(() => _isLoadingMore = false);
@@ -516,14 +507,21 @@ class _SignalFeedListState extends State<_SignalFeedList> {
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.feedState.valueOrNull;
+    super.build(context);
+    final feedState = ref.watch(signalFeedControllerProvider(widget.filter));
+    final data = feedState.valueOrNull;
     final signals = data?.signals ?? const [];
     final hasMore = data?.hasMore ?? false;
 
-    if (widget.feedState.isLoading && signals.isEmpty) {
+    if (feedState.isLoading && signals.isEmpty) {
       return RefreshIndicator(
-        onRefresh: widget.onRefresh,
+        onRefresh: () => ref
+            .read(signalFeedControllerProvider(widget.filter).notifier)
+            .loadInitial(),
         child: ListView(
+          key: PageStorageKey(
+            'signals_${widget.filter.session}_${widget.filter.pair}',
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 80),
           children: const [
@@ -533,10 +531,15 @@ class _SignalFeedListState extends State<_SignalFeedList> {
       );
     }
 
-    if (widget.feedState.hasError && signals.isEmpty) {
+    if (feedState.hasError && signals.isEmpty) {
       return RefreshIndicator(
-        onRefresh: widget.onRefresh,
+        onRefresh: () => ref
+            .read(signalFeedControllerProvider(widget.filter).notifier)
+            .loadInitial(),
         child: ListView(
+          key: PageStorageKey(
+            'signals_${widget.filter.session}_${widget.filter.pair}',
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
           children: [
@@ -546,7 +549,9 @@ class _SignalFeedListState extends State<_SignalFeedList> {
             ),
             const SizedBox(height: 12),
             TextButton(
-              onPressed: widget.onRefresh,
+              onPressed: () => ref
+                  .read(signalFeedControllerProvider(widget.filter).notifier)
+                  .loadInitial(),
               child: const Text('Try again'),
             ),
           ],
@@ -556,8 +561,13 @@ class _SignalFeedListState extends State<_SignalFeedList> {
 
     if (signals.isEmpty) {
       return RefreshIndicator(
-        onRefresh: widget.onRefresh,
+        onRefresh: () => ref
+            .read(signalFeedControllerProvider(widget.filter).notifier)
+            .loadInitial(),
         child: ListView(
+          key: PageStorageKey(
+            'signals_${widget.filter.session}_${widget.filter.pair}',
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
           children: const [
@@ -573,11 +583,16 @@ class _SignalFeedListState extends State<_SignalFeedList> {
     final showLoader = _isLoadingMore;
 
     return RefreshIndicator(
-      onRefresh: widget.onRefresh,
+      onRefresh: () => ref
+          .read(signalFeedControllerProvider(widget.filter).notifier)
+          .loadInitial(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) =>
             _handleScroll(notification, hasMore),
         child: ListView.separated(
+          key: PageStorageKey(
+            'signals_${widget.filter.session}_${widget.filter.pair}',
+          ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: signals.length + (showLoader ? 1 : 0),

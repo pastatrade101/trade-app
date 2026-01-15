@@ -23,7 +23,7 @@ const BILLING_DAYS = {
   weekly: 7,
   monthly: 30,
 };
-const ALLOWED_PROVIDERS = ["airtel", "vodacom", "tigo", "mixx"];
+const ALLOWED_PROVIDERS = ["airtel", "vodacom", "tigo", "halopesa"];
 const SIGNAL_STATUS_OPEN = "open";
 const SIGNAL_STATUS_VOTING = "voting";
 const SIGNAL_STATUS_EXPIRED_UNVERIFIED = "expired_unverified";
@@ -37,7 +37,7 @@ function mapProviderToAzam(providerLower) {
     airtel: "Airtel",
     vodacom: "Mpesa",
     tigo: "Tigo",
-    mixx: "Azampesa",
+    halopesa: "Halopesa",
   };
   return map[normalized] || null;
 }
@@ -754,7 +754,6 @@ async function handleAzamPayPremiumWebhook(req, res) {
 }
 
 exports.azamPayCallback = functions.https.onRequest(handleAzamPayPremiumWebhook);
-exports.azamPayPremiumWebhook = functions.https.onRequest(handleAzamPayPremiumWebhook);
 
 // ===================== NOTIFICATIONS =====================
 exports.sendTestSignalNotification = functions.https.onRequest(async (req, res) => {
@@ -860,7 +859,7 @@ exports.recordAffiliateClick = functions.https.onRequest(async (req, res) => {
 // ===================== AZAMPAY ORDER FLOW =====================
 exports.azamPay = functions.https.onRequest(async (req, res) => {
   try {
-    console.log("AzamPay callback:", JSON.stringify(req.body));
+    console.log("AzamPay order webhook:", JSON.stringify(req.body));
 
     const body = req.body || {};
     const {
