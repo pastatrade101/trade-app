@@ -650,6 +650,37 @@ async function handleAzamPayPremiumWebhook(req, res) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       rawResponse: body,
     });
+
+    try {
+      const amountValue = Number(intent?.amount || body.amount || 0);
+      const currencyValue = intent?.currency || body.currency || "TZS";
+      const failedRef = db.collection("failed_order").doc(intentRef.id);
+      await failedRef.create({
+        type: "premium",
+        intentId: intentRef.id,
+        uid: intent?.uid || null,
+        productId: intent?.productId || null,
+        billingPeriod: intent?.billingPeriod || null,
+        durationDays: intent?.durationDays || null,
+        amount: amountValue,
+        currency: currencyValue,
+        provider: intent?.provider || null,
+        msisdn: intent?.msisdn || null,
+        externalId: externalId || null,
+        transid: transid || null,
+        mnoreference: mnoreference || null,
+        status,
+        message: message || null,
+        providerRef: providerRef || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        rawResponse: body,
+      });
+    } catch (error) {
+      const errMessage = error?.message || "";
+      if (!errMessage.includes("already exists")) {
+        console.error("failed_order create failed:", error);
+      }
+    }
     return res.status(200).send("Callback received");
   } catch (error) {
     console.error("Error processing callback:", error);
