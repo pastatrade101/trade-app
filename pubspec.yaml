@@ -1,7 +1,7 @@
 name: stock_investment_flutter
 description: A new Flutter project.
 
-version: 1.0.0+1
+version: 1.0.4
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -17,6 +17,14 @@ dependencies:
   fl_chart: ^0.69.0
   url_launcher: ^6.3.0
   palette_generator: ^0.3.3+4
+  in_app_update: ^4.2.5
+  excel: ^4.0.5
+  share_plus: ^10.0.2
+  path_provider: ^2.1.4
+  iconsax_flutter:
+    path: packages/iconsax_flutter
+  package_info_plus: ^8.0.2
+  shared_preferences: ^2.2.2
 
   # State Management
   mobx: ^2.3.3+2
@@ -30,6 +38,7 @@ dependencies:
   firebase_storage: ^12.3.0
   firebase_messaging: ^15.1.0
   firebase_app_check: ^0.3.2+10
+  cloud_functions: ^5.0.1
   http: ^1.2.2
   flutter_local_notifications: ^17.2.2
   flutter_image_compress: ^2.3.0
@@ -37,6 +46,9 @@ dependencies:
   google_sign_in: ^6.2.1
   image_picker: ^1.1.2
   intl: ^0.19.0
+  firebase_analytics: ^11.6.0
+  webview_flutter: ^4.0.7
+
 
 dependency_overrides:
 
@@ -55,5 +67,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/2.png
+    - assets/onboard.png
     - assets/stock/
     - assets/icons/
