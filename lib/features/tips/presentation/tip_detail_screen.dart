@@ -7,6 +7,7 @@ import '../../../app/app_theme.dart';
 import '../../../core/models/tip.dart';
 import '../../../core/widgets/app_section_card.dart';
 import 'tip_widgets.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class TipDetailScreen extends ConsumerWidget {
   const TipDetailScreen({
@@ -106,7 +107,7 @@ class TipDetailScreen extends ConsumerWidget {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.flash_on,
+                            AppIcons.flash_on,
                             size: 18,
                             color: AppThemeTokens.of(context).warning,
                           ),

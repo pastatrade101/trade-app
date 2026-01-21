@@ -1,0 +1,112 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "BA4F03BD",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6758043593",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "7K72V6FG29",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 790634873.094594,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21899601",
+      "localizations" : [
+
+      ],
+      "name" : "MarketResolveGroup",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "12.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6758062059",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Trade with clarity using signals from market experts.",
+              "displayName" : "MarketResolve Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "monthly_",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly-Subscription",
+          "subscriptionGroupID" : "21899601",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "6758058415",
+          "introductoryOffer" : {
+            "internalID" : "9FF26386",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Get Weekly best Forex Signals for the cheap price",
+              "displayName" : "Weekly Forex Signals",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "weekly-subscription",
+          "subscriptionGroupID" : "21899601",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

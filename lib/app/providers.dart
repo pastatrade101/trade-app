@@ -21,6 +21,10 @@ import '../core/services/storage_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/affiliate_click_service.dart';
 import '../core/services/membership_service.dart';
+import '../features/admin/services/admin_notification_service.dart';
+import '../features/news/data/news_repository.dart';
+import '../features/premium/data/global_offer_repository.dart';
+import '../features/premium/models/global_offer.dart';
 import '../core/models/app_user.dart';
 import '../core/models/trading_session_config.dart';
 import '../core/models/user_membership.dart';
@@ -55,6 +59,10 @@ final testimonialRepositoryProvider = Provider<TestimonialRepository>((ref) {
 
 final tipRepositoryProvider = Provider<TipRepository>((ref) {
   return TipRepository();
+});
+
+final newsRepositoryProvider = Provider<NewsRepository>((ref) {
+  return NewsRepository();
 });
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
@@ -95,9 +103,21 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
 });
 
+final adminNotificationServiceProvider =
+    Provider<AdminNotificationService>((ref) => AdminNotificationService());
+
 final membershipServiceProvider = Provider<MembershipService>((ref) {
   return MembershipService();
 });
+
+final globalOfferRepositoryProvider =
+    Provider<GlobalOfferRepository>((ref) => GlobalOfferRepository());
+
+final globalOfferProvider =
+    StreamProvider<GlobalOffer?>((ref) => ref.watch(globalOfferRepositoryProvider).watchActiveOffer());
+
+final globalOfferConfigProvider =
+    StreamProvider<GlobalOffer?>((ref) => ref.watch(globalOfferRepositoryProvider).watchOfferConfig());
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
@@ -117,6 +137,10 @@ final userMembershipProvider = StreamProvider<UserMembership?>((ref) {
     return Stream.value(null);
   }
   return ref.watch(membershipServiceProvider).watchMembership(user.uid);
+});
+
+final supportTradersProvider = StreamProvider<List<AppUser>>((ref) {
+  return ref.watch(userRepositoryProvider).watchSupportTraders(limit: 200);
 });
 
 final isPremiumActiveProvider = Provider<bool>((ref) {

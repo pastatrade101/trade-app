@@ -50,7 +50,7 @@ class _TradingClubAppState extends ConsumerState<TradingClubApp> {
         : null;
 
     return MaterialApp(
-      title: 'MarketResolve',
+      title: 'MarketResolve TZ',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

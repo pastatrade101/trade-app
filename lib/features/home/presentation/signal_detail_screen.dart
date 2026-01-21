@@ -16,6 +16,8 @@ import '../../../core/widgets/firestore_error_widget.dart';
 import '../../reports/presentation/report_dialog.dart';
 import '../../profile/presentation/trader_profile_screen.dart';
 import '../../premium/presentation/premium_paywall_screen.dart';
+import '../../../services/analytics_service.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final signalDetailProvider = StreamProvider.family<Signal?, String>((ref, id) {
   return ref.read(signalRepositoryProvider).watchSignal(id);
@@ -46,6 +48,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
   final _adminNoteController = TextEditingController();
   bool _adminLoading = false;
   Timer? _clock;
+  bool _loggedView = false;
 
   @override
   void dispose() {
@@ -159,6 +162,21 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
             TradingSessionConfig.fallback();
     final tokens = AppThemeTokens.of(context);
 
+    if (!_loggedView) {
+      final signal = signalState.value;
+      if (signal != null) {
+        _loggedView = true;
+        AnalyticsService.instance.logEvent(
+          'signal_open',
+          params: {
+            'signalId': signal.id,
+            'traderUid': signal.uid,
+            'pair': signal.pair,
+          },
+        );
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Signal details'),
@@ -173,7 +191,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                 return IconButton(
                   tooltip: isSaved ? 'Saved' : 'Save',
                   icon: Icon(
-                    isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                   ),
                   onPressed: () => _toggleSaved(
                     uid: currentUser.uid,
@@ -184,7 +202,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
               },
             ),
           IconButton(
-            icon: const Icon(Icons.flag),
+            icon: const Icon(AppIcons.flag),
             onPressed: () async {
               await showDialog(
                 context: context,
@@ -237,7 +255,9 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
           final openPaywall = () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const PremiumPaywallScreen(),
+                builder: (_) => const PremiumPaywallScreen(
+                  sourceScreen: 'SignalDetails',
+                ),
               ),
             );
           };
@@ -331,7 +351,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                           Padding(
                             padding: const EdgeInsets.only(left: 4),
                             child: Icon(
-                              Icons.verified,
+                              AppIcons.verified,
                               size: 16,
                               color: colorScheme.primary,
                             ),
@@ -473,7 +493,7 @@ class _SignalTradeCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.lock, size: 18, color: colorScheme.primary),
+                    Icon(AppIcons.lock, size: 18, color: colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -560,7 +580,7 @@ class _SignalTradeCard extends StatelessWidget {
                         label: 'Entry',
                         value: entryText,
                         valueColor: textTheme.bodyLarge?.color,
-                        icon: Icons.login,
+                        icon: AppIcons.login,
                       ),
                       const SizedBox(height: 10),
                       _SignalStat(
@@ -568,7 +588,7 @@ class _SignalTradeCard extends StatelessWidget {
                         value: tp1Value?.toStringAsFixed(2) ?? '--',
                         valueColor:
                             tp1Value != null ? tokens.success : tokens.mutedText,
-                        icon: Icons.flag_outlined,
+                        icon: AppIcons.flag_outlined,
                       ),
                     ],
                   ),
@@ -583,7 +603,7 @@ class _SignalTradeCard extends StatelessWidget {
                         valueColor: stopLossValue != null
                             ? colorScheme.error
                             : tokens.mutedText,
-                        icon: Icons.stop_circle_outlined,
+                        icon: AppIcons.stop_circle_outlined,
                       ),
                       const SizedBox(height: 10),
                       _SignalStat(
@@ -591,7 +611,7 @@ class _SignalTradeCard extends StatelessWidget {
                         value: tp2Value?.toStringAsFixed(2) ?? '--',
                         valueColor:
                             tp2Value != null ? tokens.success : tokens.mutedText,
-                        icon: Icons.flag,
+                        icon: AppIcons.flag,
                       ),
                     ],
                   ),
@@ -607,7 +627,7 @@ class _SignalTradeCard extends StatelessWidget {
                     label: 'Type',
                     value: entryTypeText,
                     valueColor: textTheme.bodyLarge?.color,
-                    icon: Icons.tune,
+                    icon: AppIcons.tune,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -616,7 +636,7 @@ class _SignalTradeCard extends StatelessWidget {
                     label: 'Risk',
                     value: riskText,
                     valueColor: textTheme.bodyLarge?.color,
-                    icon: Icons.shield_outlined,
+                    icon: AppIcons.shield_outlined,
                   ),
                 ),
               ],
@@ -632,7 +652,7 @@ class _SignalTradeCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.person_outline,
+                            AppIcons.person_outline,
                             size: 14,
                             color: tokens.mutedText,
                           ),
@@ -650,7 +670,7 @@ class _SignalTradeCard extends StatelessWidget {
                           if (signal.posterVerifiedSnapshot) ...[
                             const SizedBox(width: 4),
                             Icon(
-                              Icons.verified,
+                              AppIcons.verified,
                               size: 14,
                               color: colorScheme.primary,
                             ),
@@ -661,7 +681,7 @@ class _SignalTradeCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.schedule,
+                            AppIcons.schedule,
                             size: 14,
                             color: tokens.mutedText,
                           ),
@@ -690,7 +710,7 @@ class _SignalTradeCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.event,
+                          AppIcons.event,
                           size: 14,
                           color: tokens.mutedText,
                         ),
@@ -709,7 +729,7 @@ class _SignalTradeCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.timer,
+                          AppIcons.timer,
                           size: 14,
                           color: tokens.mutedText,
                         ),
@@ -774,7 +794,7 @@ class _ReasoningCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: colorScheme.primary),
+                Icon(AppIcons.lightbulb_outline, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Trader reasoning',
@@ -834,7 +854,7 @@ class _LockedReasoningCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lock_outline, color: colorScheme.primary),
+                Icon(AppIcons.lock_outline, color: colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Trader reasoning',

@@ -14,6 +14,7 @@ import '../../../core/utils/role_helpers.dart';
 import '../../../core/widgets/app_section_card.dart';
 import '../../home/presentation/signal_detail_screen.dart';
 import '../../reports/presentation/report_dialog.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final traderProfileProvider = StreamProvider.family((ref, String uid) {
   return ref.watch(userRepositoryProvider).watchUser(uid);
@@ -141,7 +142,7 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(Icons.photo_library),
+                  leading: const Icon(AppIcons.photo_library),
                   title: const Text('Upload banner'),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -150,7 +151,7 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
                 ),
                 if (hasBanner)
                   ListTile(
-                    leading: const Icon(Icons.delete_outline),
+                    leading: const Icon(AppIcons.delete_outline),
                     title: const Text('Remove banner'),
                     onTap: () {
                       Navigator.of(context).pop();
@@ -242,7 +243,7 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(AppIcons.close),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -319,10 +320,10 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
       );
     }
 
-    add('twitter', Icons.alternate_email, 'X');
-    add('telegram', Icons.send, 'Telegram');
-    add('instagram', Icons.camera_alt, 'Instagram');
-    add('youtube', Icons.ondemand_video, 'YouTube');
+    add('twitter', AppIcons.alternate_email, 'X');
+    add('telegram', AppIcons.send, 'Telegram');
+    add('instagram', AppIcons.camera_alt, 'Instagram');
+    add('youtube', AppIcons.ondemand_video, 'YouTube');
     return buttons;
   }
 
@@ -362,186 +363,199 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
               .where((entry) => entry.value.trim().isNotEmpty)
               .toList();
           final socialLinks = user.socialLinks;
-          final canEditBanner = user.role == 'trader' &&
-              ((isSelf && currentUser?.role == 'trader') ||
+          final canEditBanner = isTrader(user.role) &&
+              ((isSelf && isTrader(currentUser?.role)) ||
                   (currentUser != null && isAdmin(currentUser.role)));
           final canEditSocialLinks = (currentUser != null &&
               (isAdmin(currentUser.role) ||
-                  (isSelf && currentUser.role == 'trader')));
+                  (isSelf && isTrader(currentUser.role))));
           final hasSocialLinks = socialLinks.values
               .where((value) => value.trim().isNotEmpty)
               .isNotEmpty;
 
-          return ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              _TraderBannerHeader(
-                user: user,
-                title: primaryName,
-                canEdit: canEditBanner,
-                isUploading: _bannerUploading,
-                onEdit: canEditBanner ? () => _showBannerActions(user) : null,
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _TraderBannerHeader(
+                  user: user,
+                  title: primaryName,
+                  canEdit: canEditBanner,
+                  isUploading: _bannerUploading,
+                  onEdit: canEditBanner ? () => _showBannerActions(user) : null,
+                ),
               ),
-              Padding(
+              SliverPadding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppSectionCard(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _MetaChip(label: roleLabel(user.role)),
-                          if (user.isBanned)
-                            const _MetaChip(
-                              label: 'Banned',
-                              tone: _MetaChipTone.danger,
-                            ),
-                        ],
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(
+                    [
+                      AppSectionCard(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _MetaChip(label: roleLabel(user.role)),
+                            if (user.isBanned)
+                              const _MetaChip(
+                                label: 'Banned',
+                                tone: _MetaChipTone.danger,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (user.role == 'trader')
+                      const SizedBox(height: 12),
+                      if (isTrader(user.role))
+                        AppSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: AppSectionTitle(title: 'Socials'),
+                                  ),
+                                  if (canEditSocialLinks)
+                                    TextButton(
+                                      onPressed: () =>
+                                          _showSocialLinksEditor(user),
+                                      child: const Text('Edit links'),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (!hasSocialLinks)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'No social links added yet.',
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                    if (canEditSocialLinks) ...[
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _showSocialLinksEditor(user),
+                                          icon: const Icon(AppIcons.add),
+                                          label: const Text('Add social links'),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                )
+                              else
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _buildSocialButtons(
+                                    context,
+                                    socialLinks,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      if (isTrader(user.role)) const SizedBox(height: 12),
                       AppSectionCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: AppSectionTitle(title: 'Socials'),
-                                ),
-                                if (canEditSocialLinks)
-                                  TextButton(
-                                    onPressed: () =>
-                                        _showSocialLinksEditor(user),
-                                    child: const Text('Edit links'),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (!hasSocialLinks)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'No social links added yet.',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                  if (canEditSocialLinks) ...[
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _showSocialLinksEditor(user),
-                                        icon: const Icon(Icons.add),
-                                        label:
-                                            const Text('Add social links'),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                            const AppSectionTitle(title: 'Contact'),
+                            const SizedBox(height: 10),
+                            if (socials.isEmpty)
+                              Text(
+                                'No contact info provided.',
+                                style: Theme.of(context).textTheme.bodySmall,
                               )
                             else
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: _buildSocialButtons(
-                                  context,
-                                  socialLinks,
-                                ),
+                                children: socials
+                                    .map(
+                                      (entry) => _ContactChip(
+                                        label: _formatContactLabel(entry.key),
+                                        value: entry.value,
+                                      ),
+                                    )
+                                    .toList(),
                               ),
                           ],
                         ),
                       ),
-                    if (user.role == 'trader') const SizedBox(height: 12),
-                    AppSectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const AppSectionTitle(title: 'Contact'),
-                          const SizedBox(height: 10),
-                          if (socials.isEmpty)
-                            Text(
-                              'No contact info provided.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            )
-                          else
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: socials
-                                  .map(
-                                    (entry) => _ContactChip(
-                                      label: _formatContactLabel(entry.key),
-                                      value: entry.value,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (!isSelf && currentUser != null)
-                      TextButton.icon(
-                        onPressed: () async {
-                          await showDialog(
-                            context: context,
-                            builder: (_) => ReportDialog(
-                              targetType: 'user',
-                              targetId: widget.uid,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.flag),
-                        label: const Text('Report user'),
-                      ),
-                    const Divider(height: 24),
-                    const Text('Recent signals'),
-                    StreamBuilder<List<Signal>>(
-                      stream: ref
-                          .watch(signalRepositoryProvider)
-                          .watchUserSignals(widget.uid),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final signals = snapshot.data!;
-                        if (signals.isEmpty) {
-                          return const Text('No recent signals');
-                        }
-                        return Column(
-                          children: signals
-                              .map(
-                                (signal) => ListTile(
-                                  title:
-                                      Text('${signal.pair} ${signal.direction}'),
-                                  subtitle: Text('Status: ${signal.status}'),
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => SignalDetailScreen(
-                                          signalId: signal.id,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              )
-                              .toList(),
-                        );
-                      },
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      if (!isSelf && currentUser != null)
+                        TextButton.icon(
+                          onPressed: () async {
+                            await showDialog(
+                              context: context,
+                              builder: (_) => ReportDialog(
+                                targetType: 'user',
+                                targetId: widget.uid,
+                              ),
+                            );
+                          },
+                          icon: const Icon(AppIcons.flag),
+                          label: const Text('Report user'),
+                        ),
+                      const Divider(height: 24),
+                      const Text('Recent signals'),
+                    ],
+                  ),
                 ),
               ),
+              StreamBuilder<List<Signal>>(
+                stream: ref
+                    .watch(signalRepositoryProvider)
+                    .watchUserSignals(widget.uid),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  final signals = snapshot.data!;
+                  if (signals.isEmpty) {
+                    return const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('No recent signals'),
+                      ),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final signal = signals[index];
+                          return ListTile(
+                            title: Text('${signal.pair} ${signal.direction}'),
+                            subtitle: Text('Status: ${signal.status}'),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SignalDetailScreen(
+                                    signalId: signal.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        childCount: signals.length,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           );
         },
@@ -656,7 +670,7 @@ class _TraderBannerHeader extends StatelessWidget {
                                 const Padding(
                                   padding: EdgeInsets.only(left: 6),
                                   child: Icon(
-                                    Icons.verified,
+                                    AppIcons.verified,
                                     color: Colors.white,
                                     size: 18,
                                   ),
@@ -681,7 +695,7 @@ class _TraderBannerHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  icon: const Icon(AppIcons.more_vert, color: Colors.white),
                   iconSize: 18,
                   tooltip: 'Banner options',
                   onPressed: onEdit,

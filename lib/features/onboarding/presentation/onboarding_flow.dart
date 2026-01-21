@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,8 @@ import '../../auth/presentation/auth_screen.dart';
 import '../../home/presentation/home_shell.dart';
 import '../../premium/presentation/payment_method_screen.dart';
 import 'onboarding_widgets.dart';
+import '../../../services/analytics_service.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 const _planFree = 'free';
 const _planDaily = 'premium_daily';
@@ -219,51 +223,312 @@ class BrandSplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Spacer(),
-              Text(
-                'Mchambuzi Kai',
-                style: textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  tokens.heroStart.withOpacity(isDark ? 0.7 : 0.92),
+                  colorScheme.background,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Official Trading App',
-                style: textTheme.titleMedium?.copyWith(
-                  color: tokens.mutedText,
-                ),
+            ),
+          ),
+          Positioned(
+            top: -60,
+            right: -40,
+            child: _GlowBlob(color: colorScheme.primary.withOpacity(0.18)),
+          ),
+          Positioned(
+            bottom: -80,
+            left: -60,
+            child: _GlowBlob(color: colorScheme.secondary.withOpacity(0.16)),
+          ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _PatternPainter(
+                color: (isDark ? Colors.white : colorScheme.primary)
+                    .withOpacity(isDark ? 0.05 : 0.08),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'powered by MarketResolve',
-                style: textTheme.bodySmall?.copyWith(
-                  color: tokens.mutedText,
-                ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  Container(
+                    height: 72,
+                    width: 72,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          colorScheme.primary,
+                          colorScheme.primary.withOpacity(0.7),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withOpacity(0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      AppIcons.trending_up,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  RichText(
+                    text: TextSpan(
+                      style: textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                      children: [
+                        const TextSpan(text: 'Mchambuzi'),
+                        TextSpan(
+                          text: ' Kai',
+                          style: textTheme.displaySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: tokens.surfaceAlt,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: tokens.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          AppIcons.verified_user_outlined,
+                          size: 14,
+                          color: tokens.mutedText,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Official Trading App',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: tokens.mutedText,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 8,
+                              width: 8,
+                              decoration: BoxDecoration(
+                                color: tokens.success,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'GOLD (XAU/USD)',
+                              style: textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: tokens.success.withOpacity(0.14),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'BUY SIGNAL',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: tokens.success,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '2,045.30',
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              AppIcons.arrow_drop_up,
+                              color: tokens.success,
+                            ),
+                            Text(
+                              '+1.24% today',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: tokens.success,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              AppIcons.bar_chart_rounded,
+                              color: tokens.mutedText,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Receive premium signals powered by local market experts '
+                    '& AI analytics.',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: tokens.mutedText,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: onContinue,
+                      child: const Text('Continue'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'powered by MarketResolve TZ · Tanzania-focused signals for Gold & Forex',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: tokens.mutedText,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                'Tanzania-focused signals for Gold & Forex',
-                style: textTheme.bodySmall?.copyWith(
-                  color: tokens.mutedText,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: onContinue,
-                  child: const Text('Continue'),
-                ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlowBlob extends StatelessWidget {
+  const _GlowBlob({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 220,
+      width: 220,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, Colors.transparent],
+          radius: 0.9,
+        ),
+      ),
+    );
+  }
+}
+
+class _PatternPainter extends CustomPainter {
+  _PatternPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const double step = 32;
+    for (double y = 0; y < size.height; y += step) {
+      final offsetX = (y ~/ step).isEven ? 0.0 : step / 2;
+      for (double x = offsetX; x < size.width; x += step) {
+        canvas.drawCircle(Offset(x, y), 1.4, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PatternPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.surface.withOpacity(0.78),
+                colorScheme.surface.withOpacity(0.55),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: tokens.border.withOpacity(0.6)),
+            boxShadow: [
+              BoxShadow(
+                color: tokens.shadow,
+                blurRadius: 18,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
+          child: child,
         ),
       ),
     );
@@ -299,19 +564,19 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             children: [
               _OnboardingBullet(
-                icon: Icons.schedule,
+                icon: AppIcons.schedule,
                 color: colorScheme.primary,
                 text: 'Session-based signals with clear time windows',
               ),
               const SizedBox(height: 12),
               _OnboardingBullet(
-                icon: Icons.lock_outline,
+                icon: AppIcons.lock_outline,
                 color: colorScheme.secondary,
                 text: 'Premium unlocks full signal details',
               ),
               const SizedBox(height: 12),
               _OnboardingBullet(
-                icon: Icons.history_toggle_off,
+                icon: AppIcons.history_toggle_off,
                 color: colorScheme.tertiary,
                 text: 'Transparent history and results',
               ),
@@ -785,7 +1050,7 @@ class _PlanCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle, size: 18, color: tokens.success),
+                    Icon(AppIcons.check_circle, size: 18, color: tokens.success),
                     const SizedBox(width: 8),
                     Expanded(child: Text(benefit)),
                   ],
@@ -829,35 +1094,35 @@ const _paymentOptions = [
     label: 'M-Pesa (Vodacom)',
     subtitle: 'Approve the M-Pesa prompt on your phone',
     color: Color(0xFFE60000),
-    icon: Icons.phone_android,
+    icon: AppIcons.phone_android,
   ),
   _PaymentOption(
     provider: 'airtel',
     label: 'Airtel Money',
     subtitle: 'Approve the Airtel Money request',
     color: Color(0xFF2563EB),
-    icon: Icons.phone_android,
+    icon: AppIcons.phone_android,
   ),
   _PaymentOption(
     provider: 'mixx',
     label: 'Mixx by Yas',
     subtitle: 'USSD/push prompt on your Mixx wallet',
     color: Color(0xFFFFD100),
-    icon: Icons.phone_android,
+    icon: AppIcons.phone_android,
   ),
   _PaymentOption(
     provider: 'tigo',
     label: 'Tigo Pesa',
     subtitle: 'Authorize on your TigoPesa wallet',
     color: Color(0xFF0033A0),
-    icon: Icons.phone_android,
+    icon: AppIcons.phone_android,
   ),
   _PaymentOption(
     provider: 'halopesa',
     label: 'HaloPesa',
     subtitle: 'Approve the HaloPesa request',
     color: Color(0xFF00A651),
-    icon: Icons.phone_android,
+    icon: AppIcons.phone_android,
   ),
 ];
 

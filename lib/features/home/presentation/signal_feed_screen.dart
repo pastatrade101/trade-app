@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,17 +7,20 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
+import '../../../core/config/app_constants.dart';
 import '../../../core/models/highlight.dart';
 import '../../../core/models/trading_session_config.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_section_card.dart';
+import '../../../core/widgets/app_reveal.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import '../../tips/presentation/tip_detail_screen.dart';
 import '../../profile/presentation/trader_profile_screen.dart';
 import '../data/signal_feed_controller.dart';
 import 'saved_signals_screen.dart';
 import 'signal_card.dart';
-import 'signal_filters.dart';
 import 'signal_detail_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class SignalFeedScreen extends ConsumerStatefulWidget {
   const SignalFeedScreen({super.key});
@@ -29,6 +34,7 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
   TabController? _tabController;
   List<String> _sessionKeys = const [];
   List<TradingSession> _sessions = const [];
+  static const String _allPairsValue = '__all_pairs__';
 
   @override
   void initState() {
@@ -62,7 +68,7 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
           actions: [
             IconButton(
               tooltip: 'Saved signals',
-              icon: const Icon(Icons.bookmark_border),
+              icon: const Icon(AppIcons.bookmark_border),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -94,9 +100,13 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
               pinned: true,
               title: const Text('Signals'),
               actions: [
+                _PairFilterAction(
+                  onTap: () => _openPairPicker(context),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Saved signals',
-                  icon: const Icon(Icons.bookmark_border),
+                  icon: const Icon(AppIcons.bookmark_border),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -123,11 +133,6 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
                     ),
                   );
                 },
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SignalFilters(
-                onChanged: () {},
               ),
             ),
             SliverPersistentHeader(
@@ -163,7 +168,13 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
   }
 
   void _applyTabSessions(List<TradingSession> sessions, List<String> keys) {
-    final controller = TabController(length: keys.length, vsync: this);
+    final previousIndex = _tabController?.index ?? 0;
+    final initialIndex = previousIndex.clamp(0, keys.length - 1).toInt();
+    final controller = TabController(
+      length: keys.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
 
     if (!mounted) {
       controller.dispose();
@@ -177,14 +188,32 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
       _sessions = sessions;
     });
 
-    if (_sessionKeys.isNotEmpty) {
-      Future(() {
-        if (!mounted) return;
-        if (_tabController?.index != 0) {
-          _tabController?.index = 0;
-        }
-      });
-    }
+  }
+
+  Future<void> _openPairPicker(BuildContext context) async {
+    final filter = ref.read(signalFeedFilterProvider);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _PairPickerSheet(
+          selectedPair: filter.pair,
+          allPairsValue: _allPairsValue,
+        );
+      },
+    );
+    if (selected == null) return;
+
+    final nextPair = selected == _allPairsValue ? null : selected;
+    if (nextPair == filter.pair) return;
+
+    ref.read(signalFeedFilterProvider.notifier).state =
+        filter.copyWith(pair: nextPair);
   }
 
   void _openHighlight(BuildContext context, DailyHighlight highlight) {
@@ -211,6 +240,172 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
         );
         return;
     }
+  }
+}
+
+class _PairFilterAction extends ConsumerWidget {
+  const _PairFilterAction({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(signalFeedFilterProvider);
+    final tokens = AppThemeTokens.of(context);
+    final label = filter.pair ?? 'All pairs';
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: tokens.surfaceAlt,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: tokens.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.filter_alt_outlined,
+                size: 16, color: colorScheme.primary),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(AppIcons.expand_more, size: 18, color: colorScheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PairPickerSheet extends StatelessWidget {
+  const _PairPickerSheet({
+    required this.selectedPair,
+    required this.allPairsValue,
+  });
+
+  final String? selectedPair;
+  final String allPairsValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final items = <String?>[null, ...AppConstants.instruments];
+    final height = MediaQuery.of(context).size.height * 0.86;
+
+    return SizedBox(
+      height: height,
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 44,
+            height: 4,
+            decoration: BoxDecoration(
+              color: tokens.border,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Text(
+                  'Select pair',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(AppIcons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final pair = items[index];
+                final label = pair ?? 'All pairs';
+                final isSelected =
+                    (pair == null && selectedPair == null) ||
+                        pair == selectedPair;
+                final value = pair ?? allPairsValue;
+                return Material(
+                  color: isSelected ? tokens.surfaceAlt : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.of(context).pop(value),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : tokens.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            AppIcons.stacked_line_chart,
+                            size: 18,
+                            color: isSelected
+                                ? colorScheme.primary
+                                : tokens.mutedText,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style:
+                                  Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              AppIcons.check_circle,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -392,7 +587,7 @@ class _TodayHighlightCardState extends ConsumerState<_TodayHighlightCard> {
                             borderColor: Colors.white.withOpacity(0.3),
                           ),
                           const Spacer(),
-                          Icon(Icons.arrow_forward,
+                          Icon(AppIcons.arrow_forward,
                               color: Colors.white70, size: 18),
                         ],
                       ),
@@ -523,9 +718,13 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
             'signals_${widget.filter.session}_${widget.filter.pair}',
           ),
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 80),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
           children: const [
-            Center(child: CircularProgressIndicator()),
+            _SignalCardSkeleton(),
+            SizedBox(height: 12),
+            _SignalCardSkeleton(),
+            SizedBox(height: 12),
+            _SignalCardSkeleton(),
           ],
         ),
       );
@@ -605,19 +804,39 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
               );
             }
             final signal = signals[index];
-            return SignalCard(
-              signal: signal,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => SignalDetailScreen(signalId: signal.id),
-                  ),
-                );
-              },
+            return RepaintBoundary(
+              child: AppReveal(
+                delay: Duration(milliseconds: 40 * (index % 6)),
+                child: SignalCard(
+                  signal: signal,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SignalDetailScreen(signalId: signal.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
             );
           },
         ),
       ),
+    );
+  }
+}
+
+class _SignalCardSkeleton extends StatelessWidget {
+  const _SignalCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        AppShimmerBox(height: 140, radius: 20),
+        SizedBox(height: 8),
+        AppShimmerBox(height: 18, radius: 999, width: 140),
+      ],
     );
   }
 }

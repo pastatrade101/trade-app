@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/tip.dart';
+import '../../../core/utils/role_helpers.dart';
 import 'create_tip_screen.dart';
 import 'tip_detail_screen.dart';
 import '../tip_config.dart';
 import 'tip_widgets.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class TipsScreen extends StatelessWidget {
   const TipsScreen({super.key});
@@ -24,7 +26,8 @@ class TipsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).value;
-    final isActiveTrader = user?.role == 'trader' && user?.traderStatus == 'active';
+    final isActiveTrader =
+        isTrader(user?.role) && user?.traderStatus == 'active';
     final canCreate =
         isActiveTrader && (!requireVerifiedTrader || user?.isVerified == true);
 
@@ -36,7 +39,7 @@ class TipsListScreen extends ConsumerWidget {
           actions: [
             if (canCreate)
               IconButton(
-                icon: const Icon(Icons.add),
+                icon: const Icon(AppIcons.add),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(

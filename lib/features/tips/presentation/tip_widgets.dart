@@ -9,7 +9,10 @@ import '../../../app/app_theme.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/tip.dart';
 import '../../../core/repositories/tip_repository.dart';
+import '../../../core/widgets/app_reveal.dart';
 import '../../../core/widgets/app_section_card.dart';
+import '../../../core/widgets/app_shimmer.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 typedef TipsPageLoader = Future<TipPage> Function(
   DocumentSnapshot<Map<String, dynamic>>? startAfter,
@@ -129,7 +132,7 @@ class _TipsPagedListState extends ConsumerState<TipsPagedList> {
   Widget build(BuildContext context) {
     final padding = widget.padding ?? const EdgeInsets.all(16);
     if (_initialLoad && _tips.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const _TipsLoadingList();
     }
     if (_error != null && _tips.isEmpty) {
       return _ErrorState(
@@ -164,7 +167,12 @@ class _TipsPagedListState extends ConsumerState<TipsPagedList> {
         if (currentIndex < _tips.length) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: widget.itemBuilder(_tips[currentIndex]),
+            child: RepaintBoundary(
+              child: AppReveal(
+                delay: Duration(milliseconds: 40 * (currentIndex % 6)),
+                child: widget.itemBuilder(_tips[currentIndex]),
+              ),
+            ),
           );
         }
         currentIndex -= _tips.length;
@@ -182,6 +190,24 @@ class _TipsPagedListState extends ConsumerState<TipsPagedList> {
         }
         return const SizedBox.shrink();
       },
+    );
+  }
+}
+
+class _TipsLoadingList extends StatelessWidget {
+  const _TipsLoadingList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      children: const [
+        AppShimmerBox(height: 140, radius: 20),
+        SizedBox(height: 12),
+        AppShimmerBox(height: 140, radius: 20),
+        SizedBox(height: 12),
+        AppShimmerBox(height: 140, radius: 20),
+      ],
     );
   }
 }
@@ -235,7 +261,7 @@ class TipCard extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(left: 8, top: 2),
                         child: Icon(
-                          Icons.push_pin,
+                          AppIcons.push_pin,
                           size: 18,
                           color: primary,
                         ),
@@ -391,7 +417,7 @@ class _TipInteractionsRowState extends ConsumerState<TipInteractionsRow> {
                   ? null
                   : () => _toggleLike(isLiked),
               icon: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
+                isLiked ? AppIcons.favorite : AppIcons.favorite_border,
                 size: iconSize,
                 color: isLiked ? Colors.redAccent : null,
               ),
@@ -413,7 +439,7 @@ class _TipInteractionsRowState extends ConsumerState<TipInteractionsRow> {
                   ? null
                   : () => _toggleSave(isSaved),
               icon: Icon(
-                isSaved ? Icons.bookmark : Icons.bookmark_border,
+                isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                 size: iconSize,
               ),
               label: Text('$_savesCount', style: labelStyle),
@@ -512,7 +538,7 @@ class _ActionLine extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.flash_on, size: 16, color: tokens.warning),
+          Icon(AppIcons.flash_on, size: 16, color: tokens.warning),
           const SizedBox(width: 6),
           Expanded(
             child: Text(

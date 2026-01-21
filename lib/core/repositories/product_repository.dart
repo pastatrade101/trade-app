@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/product.dart';
+import '../utils/firestore_guard.dart';
 
 class ProductRepository {
   ProductRepository({FirebaseFirestore? firestore})
@@ -13,11 +14,13 @@ class ProductRepository {
   }
 
   Stream<Product?> watchProduct(String id) {
-    return _productDoc(id).snapshots().map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return Product.fromJson(snapshot.id, snapshot.data()!);
+    return guardAuthStream(() {
+      return _productDoc(id).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        return Product.fromJson(snapshot.id, snapshot.data()!);
+      });
     });
   }
 
@@ -25,13 +28,15 @@ class ProductRepository {
     if (ids.isEmpty) {
       return Stream.value(const []);
     }
-    return _firestore
-        .collection('products')
-        .where(FieldPath.documentId, whereIn: ids)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Product.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _firestore
+          .collection('products')
+          .where(FieldPath.documentId, whereIn: ids)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Product.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Future<Product?> fetchProduct(String id) async {

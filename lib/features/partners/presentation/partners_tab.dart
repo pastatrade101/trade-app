@@ -6,6 +6,7 @@ import '../../../app/app_theme.dart';
 import '../../../core/models/broker.dart';
 import '../../../core/widgets/app_section_card.dart';
 import '../providers.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class PartnersTab extends ConsumerWidget {
   const PartnersTab({super.key});
@@ -55,7 +56,7 @@ class PartnersTab extends ConsumerWidget {
                         else
                           const CircleAvatar(
                             radius: 24,
-                            child: Icon(Icons.business),
+                            child: Icon(AppIcons.business),
                           ),
                         const SizedBox(width: 12),
                         Expanded(

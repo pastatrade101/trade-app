@@ -1,0 +1,12 @@
+name: iconsax_flutter
+description: Local wrapper for Iconsax so app icons resolve without network fetch.
+version: 1.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  iconsax: ^0.0.8

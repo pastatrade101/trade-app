@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/user_membership.dart';
+import '../utils/firestore_guard.dart';
 
 class MembershipService {
   MembershipService({FirebaseFirestore? firestore})
@@ -9,12 +10,14 @@ class MembershipService {
   final FirebaseFirestore _firestore;
 
   Stream<UserMembership?> watchMembership(String uid) {
-    return _firestore.collection('users').doc(uid).snapshots().map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      final data = snapshot.data()!;
-      return UserMembership.fromJson(data['membership']);
+    return guardAuthStream(() {
+      return _firestore.collection('users').doc(uid).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        final data = snapshot.data()!;
+        return UserMembership.fromJson(data['membership']);
+      });
     });
   }
 

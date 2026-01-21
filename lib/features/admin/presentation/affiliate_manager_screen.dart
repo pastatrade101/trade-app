@@ -6,6 +6,7 @@ import '../../../core/widgets/firestore_error_widget.dart';
 import '../../partners/providers.dart';
 import '../../../app/providers.dart';
 import 'affiliate_form_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class BrokerManagerScreen extends ConsumerStatefulWidget {
   const BrokerManagerScreen({super.key});
@@ -70,7 +71,7 @@ class _BrokerManagerScreenState extends ConsumerState<BrokerManagerScreen> {
       appBar: AppBar(title: const Text('Broker manager')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: Column(
         children: [
@@ -81,7 +82,7 @@ class _BrokerManagerScreenState extends ConsumerState<BrokerManagerScreen> {
               onChanged: _setSearch,
               decoration: const InputDecoration(
                 labelText: 'Search brokers',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(AppIcons.search),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -136,7 +137,7 @@ class _BrokerManagerScreenState extends ConsumerState<BrokerManagerScreen> {
                                   ? CircleAvatar(
                                       foregroundImage:
                                           NetworkImage(broker.logoUrl!))
-                                  : const CircleAvatar(child: Icon(Icons.business)),
+                                  : const CircleAvatar(child: Icon(AppIcons.business)),
                               title: Text(broker.name),
                               trailing: PopupMenuButton<String>(
                                 onSelected: (value) {

@@ -9,6 +9,7 @@ import '../../../core/models/trading_session_config.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../premium/presentation/premium_paywall_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class SignalCard extends ConsumerWidget {
   const SignalCard({super.key, required this.signal, required this.onTap});
@@ -213,7 +214,7 @@ class _SignalCardBody extends ConsumerWidget {
                           visualDensity: VisualDensity.compact,
                           tooltip: isSaved ? 'Saved' : 'Save',
                           icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                             color: isSaved ? colorScheme.primary : null,
                           ),
                           onPressed: () async {
@@ -263,14 +264,14 @@ class _SignalCardBody extends ConsumerWidget {
                           label: 'Entry',
                           value: entryText,
                           valueColor: textTheme.bodyLarge?.color,
-                          icon: Icons.login,
+                          icon: AppIcons.login,
                         ),
                         const SizedBox(height: 10),
                         _SignalStat(
                           label: 'TP1',
                           value: tp1Value.toStringAsFixed(2),
                           valueColor: tokens.success,
-                          icon: Icons.flag_outlined,
+                          icon: AppIcons.flag_outlined,
                         ),
                       ],
                     ),
@@ -283,7 +284,7 @@ class _SignalCardBody extends ConsumerWidget {
                           label: 'SL',
                           value: stopLossValue.toStringAsFixed(2),
                           valueColor: colorScheme.error,
-                          icon: Icons.stop_circle_outlined,
+                          icon: AppIcons.stop_circle_outlined,
                         ),
                         const SizedBox(height: 10),
                         _SignalStat(
@@ -291,7 +292,7 @@ class _SignalCardBody extends ConsumerWidget {
                           value: tp2Value?.toStringAsFixed(2) ?? '--',
                           valueColor:
                               tp2Value != null ? tokens.success : tokens.mutedText,
-                          icon: Icons.flag,
+                          icon: AppIcons.flag,
                         ),
                       ],
                     ),
@@ -309,7 +310,7 @@ class _SignalCardBody extends ConsumerWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.person_outline,
+                              AppIcons.person_outline,
                               size: 14,
                               color: tokens.mutedText,
                             ),
@@ -327,7 +328,7 @@ class _SignalCardBody extends ConsumerWidget {
                             if (signal.posterVerifiedSnapshot) ...[
                               const SizedBox(width: 4),
                               Icon(
-                                Icons.verified,
+                                AppIcons.verified,
                                 size: 14,
                                 color: colorScheme.primary,
                               ),
@@ -338,7 +339,7 @@ class _SignalCardBody extends ConsumerWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.schedule,
+                              AppIcons.schedule,
                               size: 14,
                               color: tokens.mutedText,
                             ),
@@ -367,7 +368,7 @@ class _SignalCardBody extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.event,
+                            AppIcons.event,
                             size: 14,
                             color: tokens.mutedText,
                           ),
@@ -386,7 +387,7 @@ class _SignalCardBody extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.timer,
+                            AppIcons.timer,
                             size: 14,
                             color: tokens.mutedText,
                           ),
@@ -494,7 +495,7 @@ class _LockedSignalCard extends ConsumerWidget {
                           visualDensity: VisualDensity.compact,
                           tooltip: isSaved ? 'Saved' : 'Save',
                           icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                             color: isSaved ? colorScheme.primary : null,
                           ),
                           onPressed: () async {
@@ -544,7 +545,7 @@ class _LockedSignalCard extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.lock, color: tokens.mutedText),
+                    Icon(AppIcons.lock, color: tokens.mutedText),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -558,7 +559,9 @@ class _LockedSignalCard extends ConsumerWidget {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const PremiumPaywallScreen(),
+                            builder: (_) => const PremiumPaywallScreen(
+                              sourceScreen: 'SignalCard',
+                            ),
                           ),
                         );
                       },

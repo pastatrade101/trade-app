@@ -5,6 +5,8 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/product.dart';
 import '../../../core/widgets/app_toast.dart';
+import 'global_offer_settings_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class PlanManagerScreen extends ConsumerStatefulWidget {
   const PlanManagerScreen({super.key});
@@ -56,40 +58,64 @@ class _PlanManagerScreenState extends ConsumerState<PlanManagerScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Publish plans')),
-      body: StreamBuilder<List<Product>>(
-        stream: productStream,
-        builder: (context, snapshot) {
-          final products = snapshot.data ?? const [];
-          final byId = {for (final product in products) product.id: product};
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: plans.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final plan = plans[index];
-              final product = byId[plan.id] ?? plan.toProduct(isActive: false);
-              final isActive = product.isActive;
-              final loading = _loading.contains(plan.id);
-              return _PlanCard(
-                plan: plan,
-                product: product,
-                isActive: isActive,
-                loading: loading,
-                tokens: tokens,
-                onPublish: () => _setPlanStatus(
-                  context: context,
-                  plan: plan,
-                  isActive: true,
-                ),
-                onUnpublish: () => _setPlanStatus(
-                  context: context,
-                  plan: plan,
-                  isActive: false,
-                ),
-              );
-            },
-          );
-        },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GlobalOfferSettingsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(AppIcons.timer),
+                label: const Text('Manage trials & offers'),
+              ),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<List<Product>>(
+              stream: productStream,
+              builder: (context, snapshot) {
+                final products = snapshot.data ?? const [];
+                final byId = {for (final product in products) product.id: product};
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: plans.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final plan = plans[index];
+                    final product =
+                        byId[plan.id] ?? plan.toProduct(isActive: false);
+                    final isActive = product.isActive;
+                    final loading = _loading.contains(plan.id);
+                    return _PlanCard(
+                      plan: plan,
+                      product: product,
+                      isActive: isActive,
+                      loading: loading,
+                      tokens: tokens,
+                      onPublish: () => _setPlanStatus(
+                        context: context,
+                        plan: plan,
+                        isActive: true,
+                      ),
+                      onUnpublish: () => _setPlanStatus(
+                        context: context,
+                        plan: plan,
+                        isActive: false,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -252,7 +278,7 @@ class _PlanBenefit extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(Icons.check_circle, size: 18, color: tokens.success),
+          Icon(AppIcons.check_circle, size: 18, color: tokens.success),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -323,7 +349,7 @@ class _PlanDefinition {
       currency: 'TZS',
       billingPeriod: 'daily',
       durationLabel: 'Valid for 24 hours',
-      icon: Icons.flash_on,
+      icon: AppIcons.flash_on,
       accent: Color(0xFF2563EB),
     ),
     _PlanDefinition(
@@ -334,7 +360,7 @@ class _PlanDefinition {
       currency: 'TZS',
       billingPeriod: 'weekly',
       durationLabel: 'Valid for 7 days',
-      icon: Icons.calendar_view_week,
+      icon: AppIcons.calendar_view_week,
       accent: Color(0xFF16A34A),
     ),
     _PlanDefinition(
@@ -345,7 +371,7 @@ class _PlanDefinition {
       currency: 'TZS',
       billingPeriod: 'monthly',
       durationLabel: 'Valid for 30 days',
-      icon: Icons.star_outline,
+      icon: AppIcons.star_outline,
       accent: Color(0xFFF97316),
     ),
   ];

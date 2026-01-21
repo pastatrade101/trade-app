@@ -4,6 +4,7 @@ import '../models/signal.dart';
 import '../models/signal_premium_details.dart';
 import '../models/vote.dart';
 import '../models/vote_aggregate.dart';
+import '../utils/firestore_guard.dart';
 
 class SignalRepository {
   SignalRepository({FirebaseFirestore? firestore})
@@ -85,11 +86,13 @@ class SignalRepository {
   }
 
   Stream<Signal?> watchSignal(String id) {
-    return _signals.doc(id).snapshots().map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return Signal.fromJson(snapshot.id, snapshot.data()!);
+    return guardAuthStream(() {
+      return _signals.doc(id).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        return Signal.fromJson(snapshot.id, snapshot.data()!);
+      });
     });
   }
 
@@ -219,47 +222,57 @@ class SignalRepository {
   }
 
   Stream<List<Signal>> watchUserSignals(String uid, {int limit = 10}) {
-    return _signals
-        .where('uid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Signal.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _signals
+          .where('uid', isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Signal.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Stream<List<Signal>> watchSignalsByStatus(String status, {int limit = 20}) {
-    return _signals
-        .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Signal.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _signals
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Signal.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Stream<bool> watchSignalLikeStatus(String signalId, String uid) {
-    return _signalLikes(signalId)
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return guardAuthStream(() {
+      return _signalLikes(signalId)
+          .doc(uid)
+          .snapshots()
+          .map((snapshot) => snapshot.exists);
+    });
   }
 
   Stream<bool> watchSignalDislikeStatus(String signalId, String uid) {
-    return _signalDislikes(signalId)
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return guardAuthStream(() {
+      return _signalDislikes(signalId)
+          .doc(uid)
+          .snapshots()
+          .map((snapshot) => snapshot.exists);
+    });
   }
 
   Stream<SignalPremiumDetails?> watchPremiumDetails(String signalId) {
-    return _premiumDetailsDoc(signalId).snapshots().map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return SignalPremiumDetails.fromJson(snapshot.data()!);
+    return guardAuthStream(() {
+      return _premiumDetailsDoc(signalId).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        return SignalPremiumDetails.fromJson(snapshot.data()!);
+      });
     });
   }
 
@@ -294,25 +307,29 @@ class SignalRepository {
   }
 
   Stream<bool> watchSavedSignal(String uid, String signalId) {
-    return _savedSignals(uid)
-        .doc(signalId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return guardAuthStream(() {
+      return _savedSignals(uid)
+          .doc(signalId)
+          .snapshots()
+          .map((snapshot) => snapshot.exists);
+    });
   }
 
   Stream<List<SavedSignalRef>> watchSavedSignals(
     String uid, {
     int limit = 100,
   }) {
-    return _savedSignals(uid)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => SavedSignalRef.fromJson(doc.id, doc.data()))
-              .toList(),
-        );
+    return guardAuthStream(() {
+      return _savedSignals(uid)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => SavedSignalRef.fromJson(doc.id, doc.data()))
+                .toList(),
+          );
+    });
   }
 
   Future<void> saveSignal({
@@ -387,14 +404,16 @@ class SignalRepository {
     List<String> statuses, {
     int limit = 20,
   }) {
-    return _signals
-        .where('status', whereIn: statuses)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Signal.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _signals
+          .where('status', whereIn: statuses)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Signal.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Future<void> submitVote({
@@ -467,39 +486,45 @@ class SignalRepository {
   }
 
   Stream<VoteAggregate> watchVoteAggregate(String signalId) {
-    return _signals.doc(signalId).snapshots().map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return VoteAggregate.empty();
-      }
-      final data = snapshot.data()!;
-      return VoteAggregate.fromJson(data['voteAgg']);
+    return guardAuthStream(() {
+      return _signals.doc(signalId).snapshots().map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return VoteAggregate.empty();
+        }
+        final data = snapshot.data()!;
+        return VoteAggregate.fromJson(data['voteAgg']);
+      });
     });
   }
 
   Stream<SignalVote?> watchUserVote(String signalId, String uid) {
-    return _signals
-        .doc(signalId)
-        .collection('votes')
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) {
-      if (!snapshot.exists || snapshot.data() == null) {
-        return null;
-      }
-      return SignalVote.fromJson(snapshot.id, snapshot.data()!);
+    return guardAuthStream(() {
+      return _signals
+          .doc(signalId)
+          .collection('votes')
+          .doc(uid)
+          .snapshots()
+          .map((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) {
+          return null;
+        }
+        return SignalVote.fromJson(snapshot.id, snapshot.data()!);
+      });
     });
   }
 
   Stream<List<SignalVote>> watchVotes(String signalId, {int limit = 20}) {
-    return _signals
-        .doc(signalId)
-        .collection('votes')
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => SignalVote.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _signals
+          .doc(signalId)
+          .collection('votes')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => SignalVote.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Future<bool> _toggleSignalReaction({

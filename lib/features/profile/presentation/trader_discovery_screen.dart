@@ -7,6 +7,7 @@ import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/widgets/app_section_card.dart';
 import 'trader_profile_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 const _createdAtField = 'createdAt';
 
@@ -172,7 +173,7 @@ class _TraderCompactTile extends StatelessWidget {
                           if (trader.isVerified) ...[
                             const SizedBox(width: 6),
                             Icon(
-                              Icons.verified,
+                              AppIcons.verified,
                               color: colorScheme.primary,
                               size: 14,
                             ),
@@ -220,7 +221,7 @@ class _TraderDiscoveryCard extends StatelessWidget {
     if (trader.strategyStyle.isNotEmpty) {
       detailChips.add(
         _InfoChip(
-          icon: Icons.bolt,
+          icon: AppIcons.bolt,
           label: trader.strategyStyle,
           color: colorScheme.primary,
         ),
@@ -229,7 +230,7 @@ class _TraderDiscoveryCard extends StatelessWidget {
     if (trader.experienceLevel.isNotEmpty) {
       detailChips.add(
         _InfoChip(
-          icon: Icons.school,
+          icon: AppIcons.school,
           label: trader.experienceLevel,
           color: tokens.success,
         ),
@@ -238,7 +239,7 @@ class _TraderDiscoveryCard extends StatelessWidget {
     if (trader.sessions.isNotEmpty) {
       detailChips.add(
         _InfoChip(
-          icon: Icons.access_time,
+          icon: AppIcons.access_time,
           label: trader.sessions.join(', '),
           color: tokens.warning,
         ),
@@ -248,7 +249,7 @@ class _TraderDiscoveryCard extends StatelessWidget {
       detailChips.addAll(
         trader.instruments.map(
           (instrument) => _InfoChip(
-            icon: Icons.show_chart,
+            icon: AppIcons.show_chart,
             label: instrument,
             color: colorScheme.secondary,
           ),
@@ -439,7 +440,7 @@ class _TraderCover extends StatelessWidget {
                     if (trader.isVerified) ...[
                       const SizedBox(width: 6),
                       Icon(
-                        Icons.verified,
+                        AppIcons.verified,
                         color: Theme.of(context).colorScheme.primary,
                         size: 18,
                       ),
@@ -528,10 +529,10 @@ List<Widget> _buildSocialButtons(
     );
   }
 
-  add('twitter', Icons.alternate_email, 'X');
-  add('telegram', Icons.send, 'Telegram');
-  add('instagram', Icons.camera_alt, 'Instagram');
-  add('youtube', Icons.ondemand_video, 'YouTube');
+  add('twitter', AppIcons.alternate_email, 'X');
+  add('telegram', AppIcons.send, 'Telegram');
+  add('instagram', AppIcons.camera_alt, 'Instagram');
+  add('youtube', AppIcons.ondemand_video, 'YouTube');
   return buttons;
 }
 

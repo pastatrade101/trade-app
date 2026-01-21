@@ -10,6 +10,7 @@ import '../../../core/repositories/signal_repository.dart';
 class SignalFeedFilter {
   final String? session;
   final String? pair;
+  static const Object _unset = Object();
 
   const SignalFeedFilter({
     this.session,
@@ -18,11 +19,11 @@ class SignalFeedFilter {
 
   SignalFeedFilter copyWith({
     String? session,
-    String? pair,
+    Object? pair = _unset,
   }) {
     return SignalFeedFilter(
       session: session ?? this.session,
-      pair: pair ?? this.pair,
+      pair: pair == _unset ? this.pair : pair as String?,
     );
   }
 

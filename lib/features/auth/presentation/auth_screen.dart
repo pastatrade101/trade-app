@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../app/app_theme.dart';
 import '../../../core/utils/validators.dart';
+import '../../../services/analytics_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -80,7 +81,7 @@ class _AuthScreenState extends State<AuthScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MarketResolve',
+                    'MarketResolve TZ',
                     style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -171,6 +172,8 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             _emailController.text.trim(),
             _passwordController.text.trim(),
           );
+      await AnalyticsService.instance
+          .logEvent('auth_login', params: {'method': 'email'});
     } catch (error) {
       setState(() {
         _error = error.toString();
@@ -189,6 +192,8 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
     });
     try {
       await ref.read(authRepositoryProvider).signInWithGoogle();
+      await AnalyticsService.instance
+          .logEvent('auth_login', params: {'method': 'google'});
     } catch (error) {
       setState(() {
         _error = error.toString();
@@ -483,6 +488,8 @@ class _SignUpFormState extends ConsumerState<_SignUpForm> {
             _emailController.text.trim(),
             _passwordController.text.trim(),
           );
+      await AnalyticsService.instance
+          .logEvent('auth_sign_up', params: {'method': 'email'});
     } catch (error) {
       setState(() {
         _error = error.toString();

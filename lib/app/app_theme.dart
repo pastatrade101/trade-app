@@ -3,23 +3,24 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // === BRAND COLORS (UPDATED) ===
-  static const Color brandBlue = Color(0xFF0D3B66); // Deep Blue
-  static const Color brandRed = Color(0xFF081A35); // Deep Red
-  static const Color brandGold = Color(0xFFF5C542); // Warm Yellow Accent
+  // Merged from fintech palette: deep blue primary + deep red secondary + warm gold accent
+  static const Color brandBlue = Color(0xFF0D3B66); // Deep Blue (primary)
+  static const Color brandRed = Color(0xFF2262FF); // Deep Red (secondary / emphasis)
+  static const Color brandGold = Color(0xFFF4C430); // Warm Yellow Accent
 
   // === BACKGROUNDS ===
-  static const Color lightBackground = Color(0xFFF6F7F9);
-  static const Color darkBackground = Color(0xFF0A0F1E);
+  static const Color lightBackground = Color(0xFFF5F7FB);
+  static const Color darkBackground = Color(0xFF0B1220);
 
   // === SURFACES ===
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color darkSurface = Color(0xFF12172A);
-  static const Color lightSurfaceAlt = Color(0xFFF1F3F6);
-  static const Color darkSurfaceAlt = Color(0xFF0E1426);
+  static const Color darkSurface = Color(0xFF111827);
+  static const Color lightSurfaceAlt = Color(0xFFF7FAFF);
+  static const Color darkSurfaceAlt = Color(0xFF0F1A2B);
 
   // === BORDERS ===
-  static const Color lightBorder = Color(0xFFE1E4EA);
-  static const Color darkBorder = Color(0xFF1F2A44);
+  static const Color lightBorder = Color(0xFFE5E7EB);
+  static const Color darkBorder = Color(0xFF1F2937);
 
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
@@ -174,12 +175,12 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       surface: AppTheme.lightSurface,
       surfaceAlt: AppTheme.lightSurfaceAlt,
       border: AppTheme.lightBorder,
-      shadow: Color(0x1A0A0F1E),
+      shadow: Color(0x1A0B1220),
       mutedText: Color(0xFF6B7280),
       heroStart: AppTheme.brandBlue,
       heroEnd: AppTheme.brandRed,
-      success: Color(0xFF0F766E),
-      warning: Color(0xFFB45309),
+      success: Color(0xFF2ECC71),
+      warning: Color(0xFFF4C430),
     );
   }
 

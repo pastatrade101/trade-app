@@ -12,7 +12,10 @@ import 'package:http/http.dart' as http;
 import '../../app/navigation.dart';
 import '../../features/home/presentation/signal_detail_screen.dart';
 import '../../features/tips/presentation/tip_detail_screen.dart';
+import '../../services/analytics_service.dart';
 import '../widgets/app_toast.dart';
+import '../models/user_membership.dart';
+import 'membership_service.dart';
 
 class NotificationService {
   NotificationService({
@@ -41,6 +44,9 @@ class NotificationService {
   bool _handlersInitialized = false;
   bool _localInitialized = false;
   String? _currentToken;
+  StreamSubscription<String>? _tokenRefreshSub;
+  StreamSubscription<UserMembership?>? _premiumSessionsSub;
+  bool? _premiumSessionsEnabled;
 
   Future<void> initForUser(String uid) async {
     if (kIsWeb || uid.isEmpty) {
@@ -54,7 +60,8 @@ class NotificationService {
       await _persistToken(uid, token);
       _currentToken = token;
     }
-    _messaging.onTokenRefresh.listen((newToken) async {
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) async {
       await _persistToken(uid, newToken);
       if (_currentToken != null && _currentToken != newToken) {
         await _deleteToken(uid, _currentToken!);
@@ -117,6 +124,32 @@ class NotificationService {
     } catch (_) {}
   }
 
+  Future<void> clearUserToken(String uid) async {
+    if (kIsWeb || uid.isEmpty) {
+      return;
+    }
+    final token = _currentToken ?? await _messaging.getToken();
+    if (token == null || token.isEmpty) {
+      return;
+    }
+    await _deleteToken(uid, token);
+    try {
+      await _messaging.deleteToken();
+    } catch (_) {}
+    if (_currentToken == token) {
+      _currentToken = null;
+    }
+  }
+
+  Future<void> resetUserSession({String? uid}) async {
+    await stopPremiumSessionsTopicSync();
+    if (uid != null && uid.isNotEmpty) {
+      await clearUserToken(uid);
+    }
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = null;
+  }
+
   Future<void> subscribeToTraderTopic(String traderUid) async {
     if (kIsWeb || traderUid.isEmpty) {
       return;
@@ -124,11 +157,62 @@ class NotificationService {
     await _messaging.subscribeToTopic(_topicForTrader(traderUid));
   }
 
+  Future<void> subscribeToPremiumSessionsTopic() async {
+    if (kIsWeb) {
+      return;
+    }
+    await _messaging.subscribeToTopic('premium_sessions');
+    await AnalyticsService.instance.logEvent(
+      'session_alert_enabled',
+      params: {'sessionName': 'all'},
+    );
+  }
+
   Future<void> unsubscribeFromTraderTopic(String traderUid) async {
     if (kIsWeb || traderUid.isEmpty) {
       return;
     }
     await _messaging.unsubscribeFromTopic(_topicForTrader(traderUid));
+  }
+
+  Future<void> unsubscribeFromPremiumSessionsTopic() async {
+    if (kIsWeb) {
+      return;
+    }
+    await _messaging.unsubscribeFromTopic('premium_sessions');
+  }
+
+  void startPremiumSessionsTopicSync({
+    required String uid,
+    required Stream<UserMembership?> membershipStream,
+    required MembershipService membershipService,
+  }) {
+    if (kIsWeb || uid.isEmpty) {
+      return;
+    }
+    _premiumSessionsSub?.cancel();
+    _premiumSessionsEnabled = null;
+    _premiumSessionsSub = membershipStream.listen((membership) async {
+      final enabled = membershipService.isPremiumActive(membership);
+      if (_premiumSessionsEnabled == enabled) {
+        return;
+      }
+      _premiumSessionsEnabled = enabled;
+      if (enabled) {
+        await subscribeToPremiumSessionsTopic();
+      } else {
+        await unsubscribeFromPremiumSessionsTopic();
+      }
+    });
+  }
+
+  Future<void> stopPremiumSessionsTopicSync() async {
+    await _premiumSessionsSub?.cancel();
+    _premiumSessionsSub = null;
+    if (_premiumSessionsEnabled == true) {
+      await unsubscribeFromPremiumSessionsTopic();
+    }
+    _premiumSessionsEnabled = null;
   }
 
   Future<void> syncTraderTopics({
@@ -273,6 +357,11 @@ class NotificationService {
         '/sendTestSignalNotification',
       );
 
+  Uri get _testSessionReminderUri => Uri.https(
+        '$_region-$_projectId.cloudfunctions.net',
+        '/sendTestSessionReminder',
+      );
+
   Future<void> sendTestNotification({String? traderUid}) async {
     if (kIsWeb) {
       return;
@@ -295,6 +384,30 @@ class NotificationService {
     if (response.statusCode != 200) {
       throw StateError(
         'Unable to send test notification (${response.statusCode}): ${response.body}',
+      );
+    }
+  }
+
+  Future<void> sendTestSessionReminder({String session = 'london'}) async {
+    if (kIsWeb) {
+      return;
+    }
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('Must be signed in to send test notifications.');
+    }
+    final idToken = await user.getIdToken();
+    final response = await _httpClient.post(
+      _testSessionReminderUri,
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'session': session}),
+    );
+    if (response.statusCode != 200) {
+      throw StateError(
+        'Unable to send test session reminder (${response.statusCode}): ${response.body}',
       );
     }
   }
