@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../auth/presentation/auth_screen.dart';
 import '../../home/presentation/home_shell.dart';
 import '../../premium/presentation/payment_method_screen.dart';
+import '../../premium/presentation/paywall_router.dart';
 import 'onboarding_widgets.dart';
 import '../../../services/analytics_service.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
@@ -106,6 +108,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _goHome();
       return;
     }
+    if (Platform.isIOS) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const PaywallRouter(sourceScreen: 'Onboarding'),
+        ),
+      );
+      return;
+    }
     final product =
         await ref.read(productRepositoryProvider).fetchProduct(planId);
     if (!mounted) {
@@ -174,6 +184,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           onSelectPlan: (planId) {
             setState(() => _selectedPlanId = planId);
             if (planId == _planFree) {
+              _goToStep(5);
+            } else if (Platform.isIOS) {
               _goToStep(5);
             } else {
               _goToStep(4);

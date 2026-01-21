@@ -15,7 +15,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/firestore_error_widget.dart';
 import '../../reports/presentation/report_dialog.dart';
 import '../../profile/presentation/trader_profile_screen.dart';
-import '../../premium/presentation/premium_paywall_screen.dart';
+import '../../premium/presentation/paywall_router.dart';
 import '../../../services/analytics_service.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
@@ -255,7 +255,7 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
           final openPaywall = () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const PremiumPaywallScreen(
+                builder: (_) => const PaywallRouter(
                   sourceScreen: 'SignalDetails',
                 ),
               ),
