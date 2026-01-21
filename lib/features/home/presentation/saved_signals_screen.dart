@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/models/signal.dart';
+import '../../../core/widgets/app_reveal.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import 'signal_card.dart';
 import 'signal_detail_screen.dart';
 
@@ -30,7 +32,7 @@ class SavedSignalsScreen extends ConsumerWidget {
         stream: repo.watchSavedSignals(user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _SavedSignalsLoading();
           }
           final saved = snapshot.data ?? const [];
           if (saved.isEmpty) {
@@ -41,7 +43,7 @@ class SavedSignalsScreen extends ConsumerWidget {
             future: repo.fetchSignalsByIds(ids),
             builder: (context, signalSnapshot) {
               if (signalSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const _SavedSignalsLoading();
               }
               final signals = signalSnapshot.data ?? const <Signal>[];
               final byId = {for (final signal in signals) signal.id: signal};
@@ -58,15 +60,19 @@ class SavedSignalsScreen extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final signal = ordered[index];
-                  return SignalCard(
-                    signal: signal,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SignalDetailScreen(signalId: signal.id),
-                        ),
-                      );
-                    },
+                  return AppReveal(
+                    delay: Duration(milliseconds: 40 * (index % 6)),
+                    child: SignalCard(
+                      signal: signal,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SignalDetailScreen(signalId: signal.id),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               );
@@ -74,6 +80,24 @@ class SavedSignalsScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _SavedSignalsLoading extends StatelessWidget {
+  const _SavedSignalsLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      children: const [
+        AppShimmerBox(height: 140, radius: 20),
+        SizedBox(height: 12),
+        AppShimmerBox(height: 140, radius: 20),
+        SizedBox(height: 12),
+        AppShimmerBox(height: 140, radius: 20),
+      ],
     );
   }
 }

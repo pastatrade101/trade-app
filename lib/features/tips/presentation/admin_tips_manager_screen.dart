@@ -5,10 +5,12 @@ import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/tip.dart';
 import '../../../core/repositories/tip_repository.dart';
+import '../../../core/utils/role_helpers.dart';
 import '../../../core/widgets/app_section_card.dart';
 import 'create_tip_screen.dart';
 import 'tip_detail_screen.dart';
 import 'tip_widgets.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class AdminTipsManagerScreen extends ConsumerStatefulWidget {
   const AdminTipsManagerScreen({super.key});
@@ -37,7 +39,8 @@ class _AdminTipsManagerScreenState extends ConsumerState<AdminTipsManagerScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value;
-    final isActiveTrader = user?.role == 'trader' && user?.traderStatus == 'active';
+    final isActiveTrader =
+        isTrader(user?.role) && user?.traderStatus == 'active';
     if (user == null || !isActiveTrader) {
       return const Scaffold(
         body: Center(child: Text('Trader access required.')),
@@ -49,7 +52,7 @@ class _AdminTipsManagerScreenState extends ConsumerState<AdminTipsManagerScreen>
         title: const Text('Tips manager'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(AppIcons.add),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TipCreateScreen()),

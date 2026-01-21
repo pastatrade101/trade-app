@@ -9,6 +9,7 @@ import '../../../core/models/trading_session_config.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../premium/presentation/premium_paywall_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class SignalCard extends ConsumerWidget {
   const SignalCard({super.key, required this.signal, required this.onTap});
@@ -37,7 +38,7 @@ class SignalCard extends ConsumerWidget {
         ? 'Expired'
         : 'Expires in ${formatCountdown(remaining)}';
     final isBuy = signal.direction.toLowerCase() == 'buy';
-    final directionColor = isBuy ? tokens.success : Colors.redAccent;
+    final directionColor = isBuy ? tokens.success : colorScheme.error;
     final statusLabel = _statusLabel(signal.status);
     final statusColor = _statusColor(signal.status, colorScheme, tokens);
 
@@ -213,7 +214,7 @@ class _SignalCardBody extends ConsumerWidget {
                           visualDensity: VisualDensity.compact,
                           tooltip: isSaved ? 'Saved' : 'Save',
                           icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                             color: isSaved ? colorScheme.primary : null,
                           ),
                           onPressed: () async {
@@ -263,12 +264,14 @@ class _SignalCardBody extends ConsumerWidget {
                           label: 'Entry',
                           value: entryText,
                           valueColor: textTheme.bodyLarge?.color,
+                          icon: AppIcons.login,
                         ),
                         const SizedBox(height: 10),
                         _SignalStat(
                           label: 'TP1',
                           value: tp1Value.toStringAsFixed(2),
                           valueColor: tokens.success,
+                          icon: AppIcons.flag_outlined,
                         ),
                       ],
                     ),
@@ -280,7 +283,8 @@ class _SignalCardBody extends ConsumerWidget {
                         _SignalStat(
                           label: 'SL',
                           value: stopLossValue.toStringAsFixed(2),
-                          valueColor: Colors.redAccent,
+                          valueColor: colorScheme.error,
+                          icon: AppIcons.stop_circle_outlined,
                         ),
                         const SizedBox(height: 10),
                         _SignalStat(
@@ -288,6 +292,7 @@ class _SignalCardBody extends ConsumerWidget {
                           value: tp2Value?.toStringAsFixed(2) ?? '--',
                           valueColor:
                               tp2Value != null ? tokens.success : tokens.mutedText,
+                          icon: AppIcons.flag,
                         ),
                       ],
                     ),
@@ -296,57 +301,108 @@ class _SignalCardBody extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Session: $sessionLabel',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              AppIcons.person_outline,
+                              size: 14,
+                              color: tokens.mutedText,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                signal.posterNameSnapshot,
+                                style: textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (signal.posterVerifiedSnapshot) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                AppIcons.verified,
+                                size: 14,
+                                color: colorScheme.primary,
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Expires at: $dateText',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          expiresIn,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: tokens.mutedText,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              AppIcons.schedule,
+                              size: 14,
+                              color: tokens.mutedText,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Session: $sessionLabel',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: tokens.mutedText,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  _QualityChip(score: signal.qualityScore),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    signal.posterNameSnapshot,
-                    style: textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppIcons.event,
+                            size: 14,
+                            color: tokens.mutedText,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Expires at: $dateText',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: tokens.mutedText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppIcons.timer,
+                            size: 14,
+                            color: tokens.mutedText,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            expiresIn,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: tokens.mutedText,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  if (signal.posterVerifiedSnapshot) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.verified,
-                      size: 14,
-                      color: colorScheme.primary,
-                    ),
-                  ],
                 ],
               ),
             ],
@@ -439,7 +495,7 @@ class _LockedSignalCard extends ConsumerWidget {
                           visualDensity: VisualDensity.compact,
                           tooltip: isSaved ? 'Saved' : 'Save',
                           icon: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            isSaved ? AppIcons.bookmark : AppIcons.bookmark_border,
                             color: isSaved ? colorScheme.primary : null,
                           ),
                           onPressed: () async {
@@ -489,7 +545,7 @@ class _LockedSignalCard extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.lock, color: tokens.mutedText),
+                    Icon(AppIcons.lock, color: tokens.mutedText),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -503,7 +559,9 @@ class _LockedSignalCard extends ConsumerWidget {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const PremiumPaywallScreen(),
+                            builder: (_) => const PremiumPaywallScreen(
+                              sourceScreen: 'SignalCard',
+                            ),
                           ),
                         );
                       },
@@ -668,11 +726,13 @@ class _SignalStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueColor,
+    this.icon,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -681,13 +741,28 @@ class _SignalStat extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 42,
-          child: Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: tokens.mutedText,
-              fontWeight: FontWeight.w600,
-            ),
+          width: 58,
+          child: Row(
+            children: [
+              if (icon != null)
+                Icon(
+                  icon,
+                  size: 14,
+                  color: tokens.mutedText,
+                ),
+              if (icon != null) const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: tokens.mutedText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -734,26 +809,6 @@ class _Pill extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-    );
-  }
-}
-
-class _QualityChip extends StatelessWidget {
-  const _QualityChip({required this.score});
-
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = score >= 80
-        ? Colors.green
-        : score >= 50
-            ? Colors.orange
-            : Colors.grey;
-    return Chip(
-      label: Text('Quality $score'),
-      backgroundColor: color.withOpacity(0.12),
-      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w600),
     );
   }
 }

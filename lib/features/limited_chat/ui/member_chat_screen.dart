@@ -16,7 +16,7 @@ import '../models/chat_quota.dart';
 import 'widgets/chat_composer.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/quota_indicator.dart';
-import '../../premium/presentation/paywall_router.dart';
+import '../../premium/presentation/premium_paywall_screen.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class MemberChatScreen extends ConsumerStatefulWidget {
@@ -296,7 +296,7 @@ class _MemberChatScreenState extends ConsumerState<MemberChatScreen> {
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const PaywallRouter(
+                                builder: (_) => const PremiumPaywallScreen(
                                   sourceScreen: 'Chat',
                                 ),
                               ),

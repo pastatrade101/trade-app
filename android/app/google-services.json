@@ -27,7 +27,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_id": "370164253057-1nn683o00t5vr7kkcl4j1oht2l92qgcr.apps.googleusercontent.com",
               "client_type": 3
             },
             {
@@ -71,7 +71,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_id": "370164253057-1nn683o00t5vr7kkcl4j1oht2l92qgcr.apps.googleusercontent.com",
               "client_type": 3
             },
             {
@@ -94,6 +94,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "370164253057-j7fauhb2co050hsmmsgcbfjel6t2b2gs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.marketresolve.app",
+            "certificate_hash": "abe9e0d8d5a8440561a86a5d1face06adab98488"
+          }
+        },
+        {
+          "client_id": "370164253057-opt6p4g96nm884slfb8oo66sdq6h9dap.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.marketresolve.app",
+            "certificate_hash": "2cfc83cc90331f575b6860ff58856d9cfe46517d"
+          }
+        },
+        {
           "client_id": "370164253057-qcnoegbtc2moslfkanvq4fsu3convnnd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -115,7 +131,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "370164253057-6fh8mgo4mrs6s058rb6pb3thnlef5gfg.apps.googleusercontent.com",
+              "client_id": "370164253057-1nn683o00t5vr7kkcl4j1oht2l92qgcr.apps.googleusercontent.com",
               "client_type": 3
             },
             {

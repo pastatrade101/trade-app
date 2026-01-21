@@ -14,7 +14,7 @@ class TradingClubApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'MarketResolve',
+      title: 'MarketResolve TZ',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

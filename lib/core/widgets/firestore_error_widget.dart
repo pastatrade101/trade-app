@@ -28,7 +28,7 @@ class FirestoreErrorWidget extends StatelessWidget {
           Text(
             title ??
                 (isPermissionError
-                    ? 'Blocked by security rules'
+                    ? 'Not authorized'
                     : 'Unable to load data'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -63,7 +63,7 @@ class FirestoreErrorWidget extends StatelessWidget {
       return error.toString();
     }
     if (firebaseError.code == 'permission-denied') {
-      return 'Blocked by security rules';
+      return 'Not authorized. Please sign in again.';
     }
     if (firebaseError.message?.toLowerCase().contains('index') == true) {
       return 'Firestore index required. Visit the Firebase console to create it.';

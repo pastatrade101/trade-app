@@ -9,9 +9,14 @@ import '../../admin/presentation/admin_shell.dart';
 import '../../home/presentation/create_signal_screen.dart';
 import '../../home/presentation/signal_feed_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../sessions/presentation/sessions_screen.dart';
 import '../../testimonials/presentation/testimonials_screen.dart';
 import '../../tips/presentation/create_tip_screen.dart';
 import '../../tips/presentation/tips_screen.dart';
+import '../../auth/presentation/member_onboarding_screen.dart';
+import '../../limited_chat/ui/member_trader_picker_screen.dart';
+import '../../../services/analytics_service.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final homeTabProvider = StateProvider<int>((ref) => 0);
 
@@ -34,45 +39,13 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
-class UserShell extends ConsumerWidget {
+class UserShell extends ConsumerStatefulWidget {
   const UserShell({required this.user, super.key});
 
   final AppUser user;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final index = ref.watch(homeTabProvider);
-    final isActiveTrader = user.role == 'trader' && user.traderStatus == 'active';
-
-    final pages = [
-      const SignalFeedScreen(),
-      const TestimonialsScreen(),
-      const TipsScreen(),
-      ProfileScreen(user: user),
-    ];
-
-    return Scaffold(
-      body: pages[index],
-      floatingActionButton: isActiveTrader
-          ? FloatingActionButton(
-              onPressed: () => _openCreateOptions(context),
-              child: const Icon(Icons.add),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) =>
-            ref.read(homeTabProvider.notifier).state = value,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Signals'),
-          NavigationDestination(
-              icon: Icon(Icons.format_quote), label: 'Testimonials'),
-          NavigationDestination(icon: Icon(Icons.lightbulb), label: 'Tips'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
-    );
-  }
+  ConsumerState<UserShell> createState() => _UserShellState();
 
   void _openCreateOptions(BuildContext context) {
     showModalBottomSheet<void>(
@@ -102,7 +75,7 @@ class UserShell extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: _CreateOptionCard(
-                        icon: Icons.show_chart,
+                        icon: AppIcons.show_chart,
                         title: 'Signal',
                         subtitle: 'Post a trade idea',
                         onTap: () {
@@ -118,7 +91,7 @@ class UserShell extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _CreateOptionCard(
-                        icon: Icons.lightbulb_outline,
+                        icon: AppIcons.lightbulb_outline,
                         title: 'Tip',
                         subtitle: 'Share one idea',
                         onTap: () {
@@ -140,6 +113,150 @@ class UserShell extends ConsumerWidget {
       },
     );
   }
+}
+
+class _UserShellState extends ConsumerState<UserShell> {
+  bool _profilePromptOpen = false;
+  bool _loggedInitialScreen = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _maybePromptProfile();
+  }
+
+  @override
+  void didUpdateWidget(covariant UserShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user != widget.user) {
+      _maybePromptProfile();
+    }
+  }
+
+  void _maybePromptProfile() {
+    final user = widget.user;
+    final needsProfile = user.role == 'member' &&
+        (user.displayName.trim().isEmpty || user.username.trim().isEmpty);
+
+    if (!needsProfile) {
+      _profilePromptOpen = false;
+      return;
+    }
+    if (_profilePromptOpen) {
+      return;
+    }
+
+    _profilePromptOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => MemberOnboardingScreen(
+            uid: user.uid,
+            lockToComplete: true,
+          ),
+        ),
+      );
+      if (mounted) {
+        _profilePromptOpen = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<int>(homeTabProvider, (previous, next) {
+      final screenName = switch (next) {
+        0 => 'Signals',
+        1 => 'Sessions',
+        2 => 'Testimonials',
+        3 => 'Tips',
+        _ => 'Profile',
+      };
+      AnalyticsService.instance.logScreen(screenName);
+      if (next == 0) {
+        AnalyticsService.instance.logEvent('signal_view_list');
+      } else if (next == 1) {
+        AnalyticsService.instance
+            .logEvent('session_open', params: {'sessionName': 'overview'});
+      } else if (next == 2) {
+        AnalyticsService.instance.logEvent('testimonial_view_list');
+      }
+    });
+
+    final index = ref.watch(homeTabProvider);
+    final user = widget.user;
+    final isActiveTrader = isTrader(user.role) && user.traderStatus == 'active';
+    final membership = ref.watch(userMembershipProvider).value;
+    final isPremiumMember =
+        isMember(user.role) &&
+        ref.read(membershipServiceProvider).isPremiumActive(membership);
+    if (!_loggedInitialScreen) {
+      _loggedInitialScreen = true;
+      final screenName = switch (index) {
+        0 => 'Signals',
+        1 => 'Sessions',
+        2 => 'Testimonials',
+        3 => 'Tips',
+        _ => 'Profile',
+      };
+      AnalyticsService.instance.logScreen(screenName);
+      if (index == 0) {
+        AnalyticsService.instance.logEvent('signal_view_list');
+      } else if (index == 1) {
+        AnalyticsService.instance
+            .logEvent('session_open', params: {'sessionName': 'overview'});
+      } else if (index == 2) {
+        AnalyticsService.instance.logEvent('testimonial_view_list');
+      }
+    }
+
+    final pages = [
+      const SignalFeedScreen(),
+      const SessionsScreen(),
+      const TestimonialsScreen(),
+      const TipsScreen(),
+      ProfileScreen(user: user),
+    ];
+
+    return Scaffold(
+      body: pages[index],
+      floatingActionButton: isActiveTrader
+          ? FloatingActionButton(
+              onPressed: () => widget._openCreateOptions(context),
+              child: const Icon(AppIcons.add),
+            )
+          : (isPremiumMember
+              ? FloatingActionButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MemberTraderPickerScreen(),
+                      ),
+                    );
+                  },
+                  child: const Icon(AppIcons.send),
+                )
+              : null),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (value) =>
+            ref.read(homeTabProvider.notifier).state = value,
+        destinations: const [
+          NavigationDestination(icon: Icon(AppIcons.home), label: 'Signals'),
+          NavigationDestination(icon: Icon(AppIcons.schedule), label: 'Sessions'),
+          NavigationDestination(
+              icon: Icon(AppIcons.format_quote), label: 'Reviews'),
+          NavigationDestination(icon: Icon(AppIcons.lightbulb), label: 'Tips'),
+          NavigationDestination(icon: Icon(AppIcons.person), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+
 }
 
 class _CreateOptionCard extends StatelessWidget {

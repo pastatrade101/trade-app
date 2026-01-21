@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/models/tip.dart';
+import '../../../core/utils/role_helpers.dart';
 import '../../../core/widgets/app_section_card.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class CreateTipScreen extends StatelessWidget {
   const CreateTipScreen({super.key});
@@ -84,8 +86,8 @@ class _TipCreateScreenState extends ConsumerState<TipCreateScreen> {
       );
       return;
     }
-    final isTrader = user.role == 'trader' && user.traderStatus == 'active';
-    if (!isTrader) {
+    final isActiveTrader = isTrader(user.role) && user.traderStatus == 'active';
+    if (!isActiveTrader) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Only traders can submit tips.')),
       );
@@ -176,7 +178,8 @@ class _TipCreateScreenState extends ConsumerState<TipCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).value;
-    final isTrader = user?.role == 'trader' && user?.traderStatus == 'active';
+    final isActiveTrader =
+        isTrader(user?.role) && user?.traderStatus == 'active';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create tip')),
@@ -288,7 +291,7 @@ class _TipCreateScreenState extends ConsumerState<TipCreateScreen> {
                           children: [
                             OutlinedButton.icon(
                               onPressed: _pickImage,
-                              icon: const Icon(Icons.image),
+                              icon: const Icon(AppIcons.image),
                               label: Text(
                                   _image == null ? 'Add image' : 'Replace image'),
                             ),
@@ -309,13 +312,13 @@ class _TipCreateScreenState extends ConsumerState<TipCreateScreen> {
                       children: [
                         const AppSectionTitle(title: 'Publish'),
                         const SizedBox(height: 8),
-                        if (isTrader != true)
+                        if (isActiveTrader != true)
                           Text(
                             'Only traders can submit tips.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         const SizedBox(height: 12),
-                        if (isTrader == true)
+                        if (isActiveTrader == true)
                           Row(
                             children: [
                               Expanded(

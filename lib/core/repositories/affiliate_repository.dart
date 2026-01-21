@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/affiliate.dart';
 import '../services/storage_service.dart';
+import '../utils/firestore_guard.dart';
 
 class AffiliateRepository {
   AffiliateRepository({
@@ -23,12 +24,12 @@ class AffiliateRepository {
         .where('isActive', isEqualTo: true)
         .orderBy('isFeatured', descending: true)
         .orderBy('sortOrder');
-    return query.snapshots().map(_mapSnapshots);
+    return guardAuthStream(() => query.snapshots().map(_mapSnapshots));
   }
 
   Stream<List<Affiliate>> watchAll() {
     final query = _affiliates.orderBy('isActive', descending: true).orderBy('sortOrder');
-    return query.snapshots().map(_mapSnapshots);
+    return guardAuthStream(() => query.snapshots().map(_mapSnapshots));
   }
 
   Future<String> createAffiliate({

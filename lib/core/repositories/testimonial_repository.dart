@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/testimonial.dart';
+import '../utils/firestore_guard.dart';
 
 class TestimonialRepository {
   TestimonialRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
@@ -17,33 +18,39 @@ class TestimonialRepository {
   String newTestimonialId() => _testimonials.doc().id;
 
   Stream<List<Testimonial>> watchPublished() {
-    return _testimonials
-        .where('status', isEqualTo: 'published')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _testimonials
+          .where('status', isEqualTo: 'published')
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Stream<List<Testimonial>> watchByStatus(String status) {
-    return _testimonials
-        .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _testimonials
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Stream<List<Testimonial>> watchByAuthor(String uid) {
-    return _testimonials
-        .where('authorUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
-            .toList());
+    return guardAuthStream(() {
+      return _testimonials
+          .where('authorUid', isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Testimonial.fromJson(doc.id, doc.data()))
+              .toList());
+    });
   }
 
   Future<void> create(Testimonial testimonial) async {

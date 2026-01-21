@@ -9,6 +9,7 @@ class AppUser {
   final String username;
   final String usernameLower;
   final String avatarUrl;
+  final String email;
   final String bio;
   final String country;
   final List<String> sessions;
@@ -31,6 +32,10 @@ class AppUser {
   final bool? notifyNewSignals;
   final String? phoneNumber;
   final UserMembership? membership;
+  final bool? termsAccepted;
+  final DateTime? termsAcceptedAt;
+  final String? termsVersion;
+  final String? termsAcceptedAppVersion;
   final bool isVerified;
   final DateTime? verifiedAt;
   final DateTime createdAt;
@@ -47,6 +52,7 @@ class AppUser {
     required this.username,
     required this.usernameLower,
     required this.avatarUrl,
+    required this.email,
     required this.bio,
     required this.country,
     required this.sessions,
@@ -69,6 +75,10 @@ class AppUser {
     this.notifyNewSignals,
     this.phoneNumber,
     this.membership,
+    this.termsAccepted,
+    this.termsAcceptedAt,
+    this.termsVersion,
+    this.termsAcceptedAppVersion,
     required this.isVerified,
     this.verifiedAt,
     required this.createdAt,
@@ -87,6 +97,7 @@ class AppUser {
       username: json['username'] ?? '',
       usernameLower: json['usernameLower'] ?? '',
       avatarUrl: json['avatarUrl'] ?? '',
+      email: json['email'] ?? '',
       bio: json['bio'] ?? '',
       country: json['country'] ?? '',
       sessions: List<String>.from(json['sessions'] ?? const <String>[]),
@@ -123,6 +134,10 @@ class AppUser {
       membership: UserMembership.fromJson(
         json['membership'] as Map<String, dynamic>?,
       ),
+      termsAccepted: json['termsAccepted'] as bool?,
+      termsAcceptedAt: timestampToDate(json['termsAcceptedAt']),
+      termsVersion: json['termsVersion'] as String?,
+      termsAcceptedAppVersion: json['termsAcceptedAppVersion'] as String?,
       isVerified: json['isVerified'] ?? false,
       verifiedAt: timestampToDate(json['verifiedAt']),
       createdAt: timestampToDate(json['createdAt']) ?? DateTime.now(),
@@ -145,6 +160,7 @@ class AppUser {
       'username': username,
       'usernameLower': usernameLower,
       'avatarUrl': avatarUrl,
+      if (email.isNotEmpty) 'email': email,
       'bio': bio,
       'country': country,
       'sessions': sessions,
@@ -169,6 +185,12 @@ class AppUser {
       if (notifyNewSignals != null) 'notifyNewSignals': notifyNewSignals,
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (membership != null) 'membership': membership!.toJson(),
+      if (termsAccepted != null) 'termsAccepted': termsAccepted,
+      if (termsAcceptedAt != null)
+        'termsAcceptedAt': dateToTimestamp(termsAcceptedAt),
+      if (termsVersion != null) 'termsVersion': termsVersion,
+      if (termsAcceptedAppVersion != null)
+        'termsAcceptedAppVersion': termsAcceptedAppVersion,
       'isVerified': isVerified,
       'verifiedAt': dateToTimestamp(verifiedAt),
       'createdAt': dateToTimestamp(createdAt),
@@ -188,6 +210,7 @@ class AppUser {
       username: '',
       usernameLower: '',
       avatarUrl: '',
+      email: '',
       bio: '',
       country: '',
       sessions: const [],
@@ -210,6 +233,10 @@ class AppUser {
       notifyNewSignals: null,
       phoneNumber: null,
       membership: UserMembership.free(),
+      termsAccepted: null,
+      termsAcceptedAt: null,
+      termsVersion: null,
+      termsAcceptedAppVersion: null,
       isVerified: false,
       verifiedAt: null,
       createdAt: DateTime.now(),

@@ -2,38 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color brandBlue = Color(0xFF1B7FED);
-  static const Color brandTeal = Color(0xFF25C2A0);
-  static const Color lightBackground = Color(0xFFF4F7FB);
+  // === BRAND COLORS (UPDATED) ===
+  // Merged from fintech palette: deep blue primary + deep red secondary + warm gold accent
+  static const Color brandBlue = Color(0xFF0D3B66); // Deep Blue (primary)
+  static const Color brandRed = Color(0xFF2262FF); // Deep Red (secondary / emphasis)
+  static const Color brandGold = Color(0xFFF4C430); // Warm Yellow Accent
+
+  // === BACKGROUNDS ===
+  static const Color lightBackground = Color(0xFFF5F7FB);
   static const Color darkBackground = Color(0xFF0B1220);
+
+  // === SURFACES ===
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color darkSurface = Color(0xFF111827);
   static const Color lightSurfaceAlt = Color(0xFFF7FAFF);
   static const Color darkSurfaceAlt = Color(0xFF0F1A2B);
-  static const Color lightBorder = Color(0xFFE5EAF2);
+
+  // === BORDERS ===
+  static const Color lightBorder = Color(0xFFE5E7EB);
   static const Color darkBorder = Color(0xFF1F2937);
 
   static ThemeData light() => _build(Brightness.light);
-
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final accent = isDark ? brandGold : brandRed;
+
     final baseScheme = ColorScheme.fromSeed(
-      seedColor: brandBlue,
+      seedColor: accent,
       brightness: brightness,
     );
-    final isDark = brightness == Brightness.dark;
+
     final colorScheme = baseScheme.copyWith(
-      secondary: brandTeal,
+      primary: accent,
+      secondary: accent,
+      tertiary: brandBlue,
       background: isDark ? darkBackground : lightBackground,
       surface: isDark ? darkSurface : lightSurface,
     );
+
     final textTheme = GoogleFonts.manropeTextTheme(
       ThemeData(brightness: brightness).textTheme,
     ).apply(
       bodyColor: colorScheme.onBackground,
       displayColor: colorScheme.onBackground,
     );
+
     final tokens = isDark ? AppThemeTokens.dark() : AppThemeTokens.light();
 
     return ThemeData(
@@ -96,7 +111,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
+          backgroundColor: colorScheme.secondary, // Deep Red CTA
           foregroundColor: Colors.white,
           textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -160,12 +175,12 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       surface: AppTheme.lightSurface,
       surfaceAlt: AppTheme.lightSurfaceAlt,
       border: AppTheme.lightBorder,
-      shadow: Color(0x1A0B1B2B),
+      shadow: Color(0x1A0B1220),
       mutedText: Color(0xFF6B7280),
       heroStart: AppTheme.brandBlue,
-      heroEnd: AppTheme.brandTeal,
-      success: Color(0xFF25C2A0),
-      warning: Color(0xFFF59E0B),
+      heroEnd: AppTheme.brandRed,
+      success: Color(0xFF2ECC71),
+      warning: Color(0xFFF4C430),
     );
   }
 
@@ -178,7 +193,7 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       shadow: Color(0x66000000),
       mutedText: Color(0xFF9CA3AF),
       heroStart: AppTheme.brandBlue,
-      heroEnd: AppTheme.brandTeal,
+      heroEnd: AppTheme.brandRed,
       success: Color(0xFF34D399),
       warning: Color(0xFFFBBF24),
     );
@@ -186,12 +201,10 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
 
   static AppThemeTokens of(BuildContext context) {
     final tokens = Theme.of(context).extension<AppThemeTokens>();
-    if (tokens == null) {
-      return Theme.of(context).brightness == Brightness.dark
-          ? AppThemeTokens.dark()
-          : AppThemeTokens.light();
-    }
-    return tokens;
+    return tokens ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? AppThemeTokens.dark()
+            : AppThemeTokens.light());
   }
 
   @override
@@ -223,9 +236,7 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
 
   @override
   AppThemeTokens lerp(ThemeExtension<AppThemeTokens>? other, double t) {
-    if (other is! AppThemeTokens) {
-      return this;
-    }
+    if (other is! AppThemeTokens) return this;
     return AppThemeTokens(
       background: Color.lerp(background, other.background, t) ?? background,
       surface: Color.lerp(surface, other.surface, t) ?? surface,
