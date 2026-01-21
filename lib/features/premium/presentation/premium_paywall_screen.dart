@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../models/global_offer.dart';
-import 'plan_selection_screen.dart';
 import '../../../services/analytics_service.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
@@ -99,11 +98,7 @@ class _PremiumPaywallScreenState extends ConsumerState<PremiumPaywallScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PlanSelectionScreen(),
-                    ),
-                  );
+                  ref.read(androidBillingServiceProvider).startCheckout(context);
                 },
                 child: const Text('Upgrade'),
               ),

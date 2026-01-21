@@ -13,7 +13,7 @@ import '../data/support_chat_repo.dart';
 import 'widgets/chat_guidelines_banner.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/message_input.dart';
-import '../../premium/presentation/premium_paywall_screen.dart';
+import '../../premium/presentation/paywall_router.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final _supportSettingsProvider = StreamProvider<SupportSettings>((ref) {
@@ -162,9 +162,9 @@ class _MemberSupportChatScreenState
                 onUpgrade: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                                builder: (_) => const PremiumPaywallScreen(
-                                  sourceScreen: 'SupportChat',
-                                ),
+                      builder: (_) => const PaywallRouter(
+                        sourceScreen: 'SupportChat',
+                      ),
                     ),
                   );
                 },

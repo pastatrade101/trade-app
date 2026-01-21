@@ -8,7 +8,7 @@ import '../../../core/models/signal_premium_details.dart';
 import '../../../core/models/trading_session_config.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../premium/presentation/premium_paywall_screen.dart';
+import '../../premium/presentation/paywall_router.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
 class SignalCard extends ConsumerWidget {
@@ -559,7 +559,7 @@ class _LockedSignalCard extends ConsumerWidget {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const PremiumPaywallScreen(
+                            builder: (_) => const PaywallRouter(
                               sourceScreen: 'SignalCard',
                             ),
                           ),

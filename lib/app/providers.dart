@@ -24,7 +24,11 @@ import '../core/services/membership_service.dart';
 import '../features/admin/services/admin_notification_service.dart';
 import '../features/news/data/news_repository.dart';
 import '../features/premium/data/global_offer_repository.dart';
+import '../features/premium/data/ios_paywall_offer_repository.dart';
 import '../features/premium/models/global_offer.dart';
+import '../features/premium/models/ios_paywall_offer.dart';
+import '../features/premium/services/android_billing_service.dart';
+import '../features/premium/services/ios_billing_service.dart';
 import '../core/models/app_user.dart';
 import '../core/models/trading_session_config.dart';
 import '../core/models/user_membership.dart';
@@ -118,6 +122,19 @@ final globalOfferProvider =
 
 final globalOfferConfigProvider =
     StreamProvider<GlobalOffer?>((ref) => ref.watch(globalOfferRepositoryProvider).watchOfferConfig());
+
+final iosPaywallOfferRepositoryProvider =
+    Provider<IosPaywallOfferRepository>((ref) => IosPaywallOfferRepository());
+
+final iosPaywallOfferProvider = StreamProvider<IosPaywallOffer?>(
+  (ref) => ref.watch(iosPaywallOfferRepositoryProvider).watchOffer(),
+);
+
+final iosBillingServiceProvider =
+    Provider<IOSBillingService>((ref) => IOSBillingService());
+
+final androidBillingServiceProvider =
+    Provider<AndroidBillingService>((ref) => AndroidBillingService());
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
