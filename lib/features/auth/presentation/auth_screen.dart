@@ -1,9 +1,14 @@
+import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../app/providers.dart';
 import '../../../app/app_theme.dart';
 import '../../../core/utils/validators.dart';
+import '../../../services/apple_auth_service.dart';
 import '../../../services/analytics_service.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -150,6 +155,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+  bool _appleLoading = false;
   String? _error;
 
   @override
@@ -168,10 +174,12 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       _error = null;
     });
     try {
+      final appleAuth = ref.read(appleAuthServiceProvider);
       await ref.read(authRepositoryProvider).signInWithEmail(
             _emailController.text.trim(),
             _passwordController.text.trim(),
           );
+      await appleAuth.linkPendingCredentialIfNeeded();
       await AnalyticsService.instance
           .logEvent('auth_login', params: {'method': 'email'});
     } catch (error) {
@@ -191,7 +199,9 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       _error = null;
     });
     try {
+      final appleAuth = ref.read(appleAuthServiceProvider);
       await ref.read(authRepositoryProvider).signInWithGoogle();
+      await appleAuth.linkPendingCredentialIfNeeded();
       await AnalyticsService.instance
           .logEvent('auth_login', params: {'method': 'google'});
     } catch (error) {
@@ -203,6 +213,70 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() {
+      _appleLoading = true;
+      _error = null;
+    });
+    try {
+      final credential =
+          await ref.read(appleAuthServiceProvider).signInWithApple();
+      if (credential == null) {
+        return;
+      }
+      await AnalyticsService.instance
+          .logEvent('auth_login', params: {'method': 'apple'});
+    } on AppleAuthLinkRequiredException catch (error) {
+      final providerLabel = _formatProviderLabels(error.signInMethods);
+      setState(() {
+        _error =
+            'An account already exists for ${error.email}. '
+            'Sign in with $providerLabel to link Apple.';
+      });
+    } on FirebaseAuthException catch (error) {
+      setState(() {
+        _error = error.message ?? 'Apple sign-in failed.';
+      });
+    } catch (_) {
+      setState(() {
+        _error = 'Apple sign-in failed.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _appleLoading = false);
+      }
+    }
+  }
+
+  String _formatProviderLabels(List<String> methods) {
+    if (methods.isEmpty) {
+      return 'your existing provider';
+    }
+    final labels = <String>{};
+    for (final method in methods) {
+      switch (method) {
+        case 'password':
+          labels.add('email and password');
+          break;
+        case 'google.com':
+          labels.add('Google');
+          break;
+        case 'apple.com':
+          labels.add('Apple');
+          break;
+        default:
+          labels.add(method);
+          break;
+      }
+    }
+    final list = labels.toList();
+    if (list.length == 1) {
+      return list.first;
+    }
+    final last = list.removeLast();
+    return '${list.join(', ')} or $last';
   }
 
   Future<void> _showResetPasswordDialog() async {
@@ -267,7 +341,8 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
                 controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
-                validator: validatePassword,
+                validator: (value) =>
+                    validatePassword(value, enforcePolicy: false),
               ),
               Align(
                 alignment: Alignment.centerRight,
@@ -331,6 +406,37 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             ),
           ),
         ),
+        if (Platform.isIOS) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AbsorbPointer(
+                  absorbing: _appleLoading,
+                  child: Opacity(
+                    opacity: _appleLoading ? 0.7 : 1,
+                    child: SignInWithAppleButton(
+                      style: SignInWithAppleButtonStyle.black,
+                      height: 48,
+                      onPressed: _signInWithApple,
+                    ),
+                  ),
+                ),
+                if (_appleLoading)
+                  const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

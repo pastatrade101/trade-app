@@ -79,6 +79,11 @@ flutter run
 ## iOS/Android Notes
 - iOS: add `NSPhotoLibraryUsageDescription` in `ios/Runner/Info.plist` for image uploads.
 
+## Apple Sign-In checklist
+- Ensure the iOS bundle id matches the Firebase iOS app.
+- Enable "Sign In with Apple" capability in Xcode.
+- Firebase Console -> Auth -> Sign-in method -> Apple enabled with Service ID / Team ID / Key ID / private key.
+
 ## Firestore Data Model
 - users/{uid}
 - signals/{signalId}

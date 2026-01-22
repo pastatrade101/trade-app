@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/utils/session_cleanup.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
@@ -117,6 +118,7 @@ class _EmailVerificationScreenState
   Widget build(BuildContext context) {
     final authUser = ref.watch(authStateProvider).value;
     final email = authUser?.email ?? 'your email';
+    final tokens = AppThemeTokens.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -173,10 +175,30 @@ class _EmailVerificationScreenState
                   : const Text('I verified — continue'),
             ),
             const SizedBox(height: 16),
-            Text(
-              'If you did not receive the email, check spam or add '
-              'support@trading.club to your contacts.',
-              style: Theme.of(context).textTheme.bodySmall,
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: tokens.warning.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: tokens.warning.withOpacity(0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(AppIcons.report, color: tokens.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Didn't receive the email? "
+                      'Please check your Spam or Promotions folder. '
+                      "If you still don't see it, add support@trading.club to your contacts.",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: tokens.mutedText,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
