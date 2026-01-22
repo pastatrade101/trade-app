@@ -21,6 +21,8 @@ import '../core/services/storage_service.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/affiliate_click_service.dart';
 import '../core/services/membership_service.dart';
+import '../services/apple_auth_service.dart';
+import '../services/purchase_service.dart';
 import '../features/admin/services/admin_notification_service.dart';
 import '../features/news/data/news_repository.dart';
 import '../features/premium/data/global_offer_repository.dart';
@@ -35,6 +37,15 @@ import '../core/models/user_membership.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
+});
+
+final appleAuthServiceProvider = Provider<AppleAuthService>((ref) {
+  return AppleAuthService();
+});
+
+final applePurchaseServiceProvider =
+    StateNotifierProvider<ApplePurchaseService, ApplePaywallState>((ref) {
+  return ApplePurchaseService();
 });
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {

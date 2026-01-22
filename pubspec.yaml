@@ -1,7 +1,7 @@
 name: stock_investment_flutter
 description: A new Flutter project.
 
-version: 1.0.6
+version: 1.0.8
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -44,6 +44,8 @@ dependencies:
   flutter_image_compress: ^2.3.0
   # Auth + Utils
   google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.0
+  crypto: ^3.0.3
   image_picker: ^1.1.2
   intl: ^0.19.0
   firebase_analytics: ^11.6.0
