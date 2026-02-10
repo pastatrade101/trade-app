@@ -38,6 +38,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
   String? _entryType;
   String? _riskLevel;
   String? _session;
+  TimeOfDay? _validUntilTime;
   File? _imageFile;
   bool _useEntryRange = false;
   bool _premiumOnly = false;
@@ -116,6 +117,10 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
       setState(() => _error = 'Please complete all required selections.');
       return;
     }
+    if (_validUntilTime == null) {
+      setState(() => _error = 'Please select a valid until time.');
+      return;
+    }
 
     final entryPrice = double.tryParse(_entryPriceController.text.trim());
     final entryMin = double.tryParse(_entryMinController.text.trim());
@@ -175,13 +180,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
         .where((tag) => tag.isNotEmpty)
         .toList();
 
-    final sessionConfig = await ref
-        .read(tradingSessionRepositoryProvider)
-        .fetchConfig()
-        .catchError((_) => TradingSessionConfig.fallback());
-    final durationMinutes = sessionConfig.durationFor(_session!);
-    final validUntil =
-        DateTime.now().add(Duration(minutes: durationMinutes));
+    final validUntil = _resolveValidUntil(_validUntilTime!);
 
     final signal = Signal(
       id: '',
@@ -211,8 +210,6 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
       resolvedBy: null,
       resolvedAt: null,
       finalOutcome: null,
-      validatorStatsUpdated: false,
-      qualityScore: 0,
       likesCount: 0,
       dislikesCount: 0,
     );
@@ -364,6 +361,8 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
               const SizedBox(height: 12),
               _buildSessionPicker(),
               const SizedBox(height: 12),
+              _buildValidityPicker(),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _reasoningController,
                 decoration: const InputDecoration(labelText: 'Reasoning'),
@@ -416,7 +415,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Text(
-          'Session settings unavailable. Using default 120 minute durations.',
+          'Session settings unavailable. Using default sessions.',
           style: const TextStyle(color: Colors.orange),
         ),
       );
@@ -425,7 +424,7 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Text(
-          'Session settings not saved yet. Using default 120 minute durations.',
+          'Session settings not saved yet. Using default sessions.',
           style: const TextStyle(color: Colors.orange),
         ),
       );
@@ -441,18 +440,6 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
     final sessions = enabledSessions.isNotEmpty
         ? enabledSessions
         : TradingSessionConfig.fallback().enabledSessionsOrdered();
-    final selectedKey = _session;
-    final durationMinutes =
-        selectedKey != null ? config.durationFor(selectedKey) : null;
-    final durationLabel = durationMinutes != null
-        ? _formatDuration(Duration(minutes: durationMinutes))
-        : null;
-    final previewExpiration = durationMinutes != null
-        ? formatTanzaniaDateTime(
-            DateTime.now().add(Duration(minutes: durationMinutes)),
-          )
-        : null;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -469,10 +456,45 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
               .toList(),
           onChanged: (value) => setState(() => _session = value),
         ),
+      ],
+    );
+  }
+
+  Widget _buildValidityPicker() {
+    final now = DateTime.now();
+    final selected = _validUntilTime;
+    final resolved =
+        selected != null ? _resolveValidUntil(selected, now: now) : null;
+    final durationLabel = resolved != null
+        ? _formatDuration(resolved.difference(now))
+        : null;
+    final previewExpiration = resolved != null
+        ? formatTanzaniaDateTime(resolved)
+        : null;
+    final displayTime = selected != null
+        ? MaterialLocalizations.of(context).formatTimeOfDay(selected)
+        : 'Select time';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: _pickValidityTime,
+          child: InputDecorator(
+            decoration: const InputDecoration(labelText: 'Valid until time'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(displayTime),
+                const Icon(Icons.access_time, size: 18),
+              ],
+            ),
+          ),
+        ),
         if (durationLabel != null) ...[
           const SizedBox(height: 6),
           Text(
-            'This session expires in $durationLabel (admin configured).',
+            'Valid for $durationLabel.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (previewExpiration != null)
@@ -483,6 +505,33 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
         ],
       ],
     );
+  }
+
+  Future<void> _pickValidityTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _validUntilTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _validUntilTime = picked;
+      });
+    }
+  }
+
+  DateTime _resolveValidUntil(TimeOfDay time, {DateTime? now}) {
+    final base = now ?? DateTime.now();
+    var candidate = DateTime(
+      base.year,
+      base.month,
+      base.day,
+      time.hour,
+      time.minute,
+    );
+    if (!candidate.isAfter(base)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return candidate;
   }
 
   String _formatDuration(Duration duration) {

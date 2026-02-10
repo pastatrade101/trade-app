@@ -5,7 +5,7 @@ class AppTheme {
   // === BRAND COLORS (UPDATED) ===
   // Merged from fintech palette: deep blue primary + deep red secondary + warm gold accent
   static const Color brandBlue = Color(0xFF0D3B66); // Deep Blue (primary)
-  static const Color brandRed = Color(0xFF2262FF); // Deep Red (secondary / emphasis)
+  static const Color brandRed = Color(0xFF0A3A72); // Deep Red (secondary / emphasis)
   static const Color brandGold = Color(0xFFF4C430); // Warm Yellow Accent
 
   // === BACKGROUNDS ===

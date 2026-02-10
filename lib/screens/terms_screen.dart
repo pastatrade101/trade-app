@@ -180,7 +180,7 @@ List<Widget> _buildTermsContent(
 const String _termsText = '''Terms & Conditions
 Last updated: 16 January 2026
 
-Welcome to Mchambuzi Kai Official Trading App (“the App”), powered by MarketResolve TZ.
+Welcome to Mchambuzi Kai Official Trading App (“the App”), powered by Soko Gliant.
 By creating an account, accessing, or using this App, you agree to be bound by these
 Terms & Conditions. If you do not agree, please do not use the App.
 
@@ -224,7 +224,7 @@ You agree that:
 - You understand leverage and volatility
 - You trade at your own discretion
 
-Neither the App, Mchambuzi Kai, nor MarketResolve TZ is responsible for losses.
+Neither the App, Mchambuzi Kai, nor Soko Gliant is responsible for losses.
 
 6. Premium Subscriptions & Payments
 - Some features require Premium membership

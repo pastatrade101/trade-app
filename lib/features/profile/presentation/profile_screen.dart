@@ -844,7 +844,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 ),
                               );
                             }
-                            final signals = snapshot.data!;
+                            final now = DateTime.now();
+                            final signals = snapshot.data!
+                                .where((signal) =>
+                                    signal.validUntil.isAfter(now))
+                                .toList();
                             if (signals.isEmpty) {
                               return Text(
                                 'No recent signals',

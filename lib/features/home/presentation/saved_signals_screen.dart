@@ -47,9 +47,11 @@ class SavedSignalsScreen extends ConsumerWidget {
               }
               final signals = signalSnapshot.data ?? const <Signal>[];
               final byId = {for (final signal in signals) signal.id: signal};
+              final now = DateTime.now();
               final ordered = saved
                   .map((item) => byId[item.signalId])
                   .whereType<Signal>()
+                  .where((signal) => signal.validUntil.isAfter(now))
                   .toList();
               if (ordered.isEmpty) {
                 return const Center(child: Text('Saved signals not found.'));

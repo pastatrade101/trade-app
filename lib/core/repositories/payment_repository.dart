@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
@@ -98,6 +99,12 @@ class PaymentRepository {
       '${_region}-${_projectId}.cloudfunctions.net',
       '/initiatePremiumCheckout',
     );
+    String? appCheckToken;
+    try {
+      appCheckToken = await FirebaseAppCheck.instance.getToken();
+    } catch (_) {
+      appCheckToken = null;
+    }
     final requestBody = {
       'jwtToken': token,
       'provider': provider,
@@ -108,7 +115,8 @@ class PaymentRepository {
       uri,
       headers: {
         'Content-Type': 'application/json',
-        // TODO: Add App Check token header if required by your project.
+        if (appCheckToken != null && appCheckToken.isNotEmpty)
+          'X-Firebase-AppCheck': appCheckToken,
       },
       body: jsonEncode({
         ...requestBody,

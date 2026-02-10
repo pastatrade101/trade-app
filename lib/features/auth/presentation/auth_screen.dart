@@ -86,7 +86,7 @@ class _AuthScreenState extends State<AuthScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MarketResolve TZ',
+                    'Soko Gliant',
                     style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -237,11 +237,12 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       });
     } on FirebaseAuthException catch (error) {
       setState(() {
-        _error = error.message ?? 'Apple sign-in failed.';
+        final message = error.message ?? 'Apple sign-in failed.';
+        _error = 'Apple sign-in failed. code=${error.code} message=$message';
       });
-    } catch (_) {
+    } catch (error) {
       setState(() {
-        _error = 'Apple sign-in failed.';
+        _error = 'Apple sign-in failed. error=$error';
       });
     } finally {
       if (mounted) {
@@ -308,7 +309,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       children: [
         Center(
           child: Image.asset(
-            'assets/2.png',
+            'assets/logogliank.png',
             height: 64,
             width: 64,
             fit: BoxFit.contain,
@@ -373,70 +374,42 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: Divider(color: tokens.border)),
-            const SizedBox(width: 12),
-            Text('or', style: textTheme.labelMedium),
-            const SizedBox(width: 12),
-            Expanded(child: Divider(color: tokens.border)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: _loading ? null : _signInWithGoogle,
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: tokens.border),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/stock/google_logo.png',
-                  height: 20,
-                  width: 20,
-                ),
-                const SizedBox(width: 10),
-                const Text('Continue with Google'),
-              ],
-            ),
+        if (!Platform.isIOS) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: Divider(color: tokens.border)),
+              const SizedBox(width: 12),
+              Text('or', style: textTheme.labelMedium),
+              const SizedBox(width: 12),
+              Expanded(child: Divider(color: tokens.border)),
+            ],
           ),
-        ),
-        if (Platform.isIOS) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                AbsorbPointer(
-                  absorbing: _appleLoading,
-                  child: Opacity(
-                    opacity: _appleLoading ? 0.7 : 1,
-                    child: SignInWithAppleButton(
-                      style: SignInWithAppleButtonStyle.black,
-                      height: 48,
-                      onPressed: _signInWithApple,
-                    ),
+            child: OutlinedButton(
+              onPressed: _loading ? null : _signInWithGoogle,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: tokens.border),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/stock/google_logo.png',
+                    height: 20,
+                    width: 20,
                   ),
-                ),
-                if (_appleLoading)
-                  const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
+                  const SizedBox(width: 10),
+                  const Text('Continue with Google'),
+                ],
+              ),
             ),
           ),
         ],
+        // Apple sign-in button removed per request.
       ],
     );
   }

@@ -48,8 +48,10 @@ class Signal {
   final String? resolvedBy;
   final DateTime? resolvedAt;
   final String? finalOutcome;
-  final bool validatorStatsUpdated;
-  final int qualityScore;
+  final String? result;
+  final double? pips;
+  final double? closedPrice;
+  final DateTime? closedAt;
   final bool lockVotes;
   final int likesCount;
   final int dislikesCount;
@@ -84,8 +86,10 @@ class Signal {
     required this.resolvedBy,
     required this.resolvedAt,
     required this.finalOutcome,
-    required this.validatorStatsUpdated,
-    required this.qualityScore,
+    this.result,
+    this.pips,
+    this.closedPrice,
+    this.closedAt,
     this.lockVotes = false,
     required this.likesCount,
     required this.dislikesCount,
@@ -130,8 +134,10 @@ class Signal {
       resolvedBy: json['resolvedBy'],
       resolvedAt: timestampToDate(json['resolvedAt']),
       finalOutcome: json['finalOutcome'],
-      validatorStatsUpdated: json['validatorStatsUpdated'] ?? false,
-      qualityScore: (json['qualityScore'] ?? 0).toInt(),
+      result: json['result'],
+      pips: (json['pips'] as num?)?.toDouble(),
+      closedPrice: (json['closedPrice'] as num?)?.toDouble(),
+      closedAt: timestampToDate(json['closedAt']),
       lockVotes: json['lockVotes'] ?? false,
       likesCount: (json['likesCount'] ?? 0).toInt(),
       dislikesCount: (json['dislikesCount'] ?? 0).toInt(),
@@ -168,9 +174,7 @@ class Signal {
       'resolvedBy': resolvedBy,
       'resolvedAt': dateToTimestamp(resolvedAt),
       'finalOutcome': finalOutcome,
-      'validatorStatsUpdated': validatorStatsUpdated,
       'lockVotes': lockVotes,
-      'qualityScore': qualityScore,
       'likesCount': likesCount,
       'dislikesCount': dislikesCount,
       'preview': {

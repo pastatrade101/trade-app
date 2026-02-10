@@ -107,7 +107,7 @@ class SalesReportService {
     final directory = await getTemporaryDirectory();
     final now = generatedAt ?? DateTime.now();
     final fileName =
-        'MarketResolve_TZ_Sales_Report_${now.year}_${_twoDigits(now.month)}.xlsx';
+        'Soko_Gliant_Sales_Report_${now.year}_${_twoDigits(now.month)}.xlsx';
     final file = File('${directory.path}/$fileName');
     await file.writeAsBytes(bytes, flush: true);
     return file;
@@ -116,7 +116,7 @@ class SalesReportService {
   Future<void> shareReport(File file) async {
     await Share.shareXFiles(
       [XFile(file.path)],
-      text: 'MarketResolve TZ sales report',
+      text: 'Soko Gliant sales report',
     );
   }
 

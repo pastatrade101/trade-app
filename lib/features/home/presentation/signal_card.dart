@@ -6,6 +6,7 @@ import '../../../core/models/app_user.dart';
 import '../../../core/models/signal.dart';
 import '../../../core/models/signal_premium_details.dart';
 import '../../../core/models/trading_session_config.dart';
+import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../premium/presentation/paywall_router.dart';
@@ -20,14 +21,14 @@ class SignalCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider).value;
-    final isPremiumActive = ref.watch(isPremiumActiveProvider);
     final canSave = currentUser != null && currentUser.role != 'admin';
+    final isPremiumActive = ref.watch(isPremiumActiveProvider);
+    final role = currentUser?.role;
     final tokens = AppThemeTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final canViewPremium = isPremiumActive ||
-        currentUser?.role == 'admin' ||
-        currentUser?.uid == signal.uid;
+    final canViewPremium =
+        isPremiumActive || isAdmin(role) || isTrader(role);
     final isLocked = signal.premiumOnly && !canViewPremium;
     final sessionConfig = ref.watch(tradingSessionConfigProvider).asData?.value ??
         TradingSessionConfig.fallback();
@@ -821,8 +822,8 @@ String _statusLabel(String status) {
   if (normalized == 'voting') {
     return 'CLOSED';
   }
-  if (normalized == 'expired_unverified') {
-    return 'UNVERIFIED';
+  if (normalized == 'expired') {
+    return 'EXPIRED';
   }
   return status.toUpperCase();
 }
@@ -838,7 +839,7 @@ Color _statusColor(String status, ColorScheme colorScheme, AppThemeTokens tokens
   if (normalized == 'resolved' || normalized == 'closed') {
     return tokens.mutedText;
   }
-  if (normalized == 'expired_unverified') {
+  if (normalized == 'expired') {
     return tokens.warning;
   }
   return tokens.warning;

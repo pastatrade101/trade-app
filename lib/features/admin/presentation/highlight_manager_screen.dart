@@ -133,7 +133,7 @@ class _HighlightManagerScreenState extends ConsumerState<HighlightManagerScreen>
                 statuses: const [
                   'open',
                   'resolved',
-                  'expired_unverified',
+                  'expired',
                 ],
                 limit: 50,
               );

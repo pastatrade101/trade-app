@@ -10,20 +10,24 @@ import '../../../core/repositories/signal_repository.dart';
 class SignalFeedFilter {
   final String? session;
   final String? pair;
+  final SignalFeedView view;
   static const Object _unset = Object();
 
   const SignalFeedFilter({
     this.session,
     this.pair,
+    this.view = SignalFeedView.active,
   });
 
   SignalFeedFilter copyWith({
     String? session,
     Object? pair = _unset,
+    SignalFeedView? view,
   }) {
     return SignalFeedFilter(
       session: session ?? this.session,
       pair: pair == _unset ? this.pair : pair as String?,
+      view: view ?? this.view,
     );
   }
 
@@ -31,12 +35,15 @@ class SignalFeedFilter {
   bool operator ==(Object other) {
     return other is SignalFeedFilter &&
         other.session == session &&
-        other.pair == pair;
+        other.pair == pair &&
+        other.view == view;
   }
 
   @override
-  int get hashCode => Object.hash(session, pair);
+  int get hashCode => Object.hash(session, pair, view);
 }
+
+enum SignalFeedView { active, history }
 
 class SignalFeedState {
   final List<Signal> signals;
@@ -96,9 +103,11 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
         limit: 20,
         session: _filter.session,
         pair: _filter.pair,
+        statuses: _statusesForView(_filter.view),
       );
+      final filtered = _applyViewFilter(page.signals);
       state = AsyncValue.data(SignalFeedState(
-        signals: page.signals,
+        signals: filtered,
         lastDoc: page.lastDoc,
         hasMore: page.hasMore,
         filter: _filter,
@@ -119,9 +128,11 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
         startAfter: current.lastDoc,
         session: _filter.session,
         pair: _filter.pair,
+        statuses: _statusesForView(_filter.view),
       );
+      final filtered = _applyViewFilter(page.signals);
       state = AsyncValue.data(current.copyWith(
-        signals: [...current.signals, ...page.signals],
+        signals: [...current.signals, ...filtered],
         lastDoc: page.lastDoc,
         hasMore: page.hasMore,
         filter: _filter,
@@ -129,5 +140,22 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
     } catch (error, stack) {
       state = AsyncValue.error(error, stack);
     }
+  }
+
+  List<String> _statusesForView(SignalFeedView view) {
+    switch (view) {
+      case SignalFeedView.active:
+        return const ['open', 'voting'];
+      case SignalFeedView.history:
+        return const ['resolved', 'expired'];
+    }
+  }
+
+  List<Signal> _applyViewFilter(List<Signal> signals) {
+    if (_filter.view == SignalFeedView.history) {
+      return signals;
+    }
+    final now = DateTime.now();
+    return signals.where((signal) => signal.validUntil.isAfter(now)).toList();
   }
 }

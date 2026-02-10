@@ -445,7 +445,7 @@ class BrandSplashScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'powered by MarketResolve TZ · Tanzania-focused signals for Gold & Forex',
+                    'powered by Soko Gliant · Tanzania-focused signals for Gold & Forex',
                     textAlign: TextAlign.center,
                     style: textTheme.bodySmall?.copyWith(
                       color: tokens.mutedText,

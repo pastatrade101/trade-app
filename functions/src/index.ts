@@ -30,7 +30,7 @@ const BILLING_DAYS = {
 const ALLOWED_PROVIDERS = ["airtel", "vodacom", "tigo", "halopesa"];
 const SIGNAL_STATUS_OPEN = "open";
 const SIGNAL_STATUS_VOTING = "voting";
-const SIGNAL_STATUS_EXPIRED_UNVERIFIED = "expired_unverified";
+const SIGNAL_STATUS_EXPIRED = "expired";
 const SIGNAL_BATCH_LIMIT = 200;
 const SIGNAL_TOPIC_PREFIX = "trader_";
 const SIGNAL_NOTIFICATION_CHANNEL = "signals";
@@ -1549,41 +1549,7 @@ exports.processOrder = functions.https.onRequest(async (req, res) => {
   }
 });
 
-exports.mostBookSold = functions.https.onRequest(async (req, res) => {
-  try {
-    const ordersSnapshot = await db.collection("Users_Order").get();
 
-    const booksCount = {};
-    ordersSnapshot.forEach((order) => {
-      const bookID = order.data().bookID;
-      if (!bookID) {
-        return;
-      }
-      booksCount[bookID] = (booksCount[bookID] || 0) + 1;
-    });
-
-    const booksArray = Object.keys(booksCount).map((key) => ({
-      bookID: key,
-      count: booksCount[key],
-    }));
-
-    booksArray.sort((a, b) => b.count - a.count);
-    const mostSoldBooks = booksArray.slice(0, 7);
-
-    const booksPromises = mostSoldBooks.map(async (book) => {
-      const bookSnapshot = await db.collection("books").doc(book.bookID).get();
-      return { id: book.bookID, count: book.count, ...bookSnapshot.data() };
-    });
-
-    const mostSoldBooksData = await Promise.all(booksPromises);
-    console.log("Most Sold Books:", mostSoldBooksData);
-
-    return res.status(200).json(mostSoldBooksData);
-  } catch (error) {
-    console.error("Error retrieving most sold books:", error);
-    return res.status(500).send("Error retrieving most sold books.");
-  }
-});
 
 exports.notifyOnSignalCreate = functions.firestore
   .document("signals/{signalId}")
@@ -1648,7 +1614,7 @@ exports.processSignalExpirations = functions.pubsub
           return;
         }
         batch.update(doc.ref, {
-          status: SIGNAL_STATUS_EXPIRED_UNVERIFIED,
+          status: SIGNAL_STATUS_EXPIRED,
           lockVotes: true,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -1667,7 +1633,25 @@ exports.processSignalExpirations = functions.pubsub
       const batch = db.batch();
       votingSnap.docs.forEach((doc) => {
         batch.update(doc.ref, {
-          status: SIGNAL_STATUS_EXPIRED_UNVERIFIED,
+          status: SIGNAL_STATUS_EXPIRED,
+          lockVotes: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+
+    const legacySnap = await db
+      .collection("signals")
+      .where("status", "==", "expired_unverified")
+      .limit(SIGNAL_BATCH_LIMIT)
+      .get();
+
+    if (!legacySnap.empty) {
+      const batch = db.batch();
+      legacySnap.docs.forEach((doc) => {
+        batch.update(doc.ref, {
+          status: SIGNAL_STATUS_EXPIRED,
           lockVotes: true,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -1678,6 +1662,7 @@ exports.processSignalExpirations = functions.pubsub
     console.log("processSignalExpirations done", {
       openExpired: openSnap.size,
       votingExpired: votingSnap.size,
+      legacyUpdated: legacySnap.size,
     });
     return null;
   });
@@ -2384,5 +2369,491 @@ exports.refreshNewsCache = functions.pubsub
         }
       })
     );
+    return null;
+  });
+
+const { defineString } = require("firebase-functions/params");
+
+const MARKET_API_KEY = defineString("MARKET_API_KEY");
+
+const CRYPTO_CODES = new Set([
+  "BTC",
+  "ETH",
+  "USDT",
+  "USDC",
+  "BNB",
+  "XRP",
+  "ADA",
+  "SOL",
+  "DOT",
+  "AVAX",
+  "TRX",
+  "MATIC",
+  "LTC",
+  "BCH",
+  "SHIB",
+  "LINK",
+  "DOGE",
+]);
+
+function normalizeMarketSymbol(pair) {
+  const raw = String(pair || "").trim().toUpperCase();
+  if (!raw) {
+    return "";
+  }
+  if (raw.includes("/")) {
+    return raw;
+  }
+  if (raw.includes("-")) {
+    return raw.replace("-", "/");
+  }
+  if (raw.length === 6) {
+    return `${raw.slice(0, 3)}/${raw.slice(3)}`;
+  }
+  return raw;
+}
+
+function splitPair(pair) {
+  const normalized = normalizeMarketSymbol(pair);
+  if (normalized.includes("/")) {
+    const [base, quote] = normalized.split("/");
+    return { base, quote, normalized };
+  }
+  if (normalized.length === 6) {
+    return {
+      base: normalized.slice(0, 3),
+      quote: normalized.slice(3),
+      normalized,
+    };
+  }
+  return { base: normalized, quote: "", normalized };
+}
+
+function resolveUnitInfo(pair) {
+  const { base, quote, normalized } = splitPair(pair);
+  if (normalized.replace("/", "") === "XAUUSD") {
+    return { unitLabel: "points", unitSize: 0.1 };
+  }
+  if (CRYPTO_CODES.has(base) || CRYPTO_CODES.has(quote)) {
+    return { unitLabel: "points", unitSize: 1 };
+  }
+  if (normalized.includes("JPY") || quote === "JPY" || base === "JPY") {
+    return { unitLabel: "pips", unitSize: 0.01 };
+  }
+  return { unitLabel: "pips", unitSize: 0.0001 };
+}
+
+function roundToOneDecimal(value) {
+  return Math.round(Number(value) * 10) / 10;
+}
+
+function resolveDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  if (typeof value === "object" && typeof value.toDate === "function") {
+    const parsed = value.toDate();
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function resolveWindowStart(data, now) {
+  return (
+    resolveDate(data.createdAt) ||
+    resolveDate(data.openedAt) ||
+    resolveDate(data?.preview?.createdAt) ||
+    new Date(now.getTime() - 6 * 60 * 60 * 1000)
+  );
+}
+
+function resolveWindowEnd(data) {
+  return resolveDate(data.expiresAt) || resolveDate(data?.preview?.validUntil);
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatUtcDateTime(date) {
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(
+    date.getUTCDate()
+  )} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:${pad2(
+    date.getUTCSeconds()
+  )}`;
+}
+
+function parseCandleTime(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return NaN;
+  }
+  const parts = raw.split(/[- :]/).map((part) => Number(part));
+  if (parts.length < 6 || parts.some((part) => !Number.isFinite(part))) {
+    return NaN;
+  }
+  const [year, month, day, hour, minute, second] = parts;
+  return Date.UTC(year, month - 1, day, hour, minute, second);
+}
+
+function parseCandles(values) {
+  return (values || [])
+    .map((entry) => {
+      const timestampMs = parseCandleTime(entry.datetime);
+      return {
+        timestampMs,
+        datetime: entry.datetime,
+        open: Number(entry.open),
+        high: Number(entry.high),
+        low: Number(entry.low),
+        close: Number(entry.close),
+      };
+    })
+    .filter(
+      (candle) =>
+        Number.isFinite(candle.timestampMs) &&
+        Number.isFinite(candle.open) &&
+        Number.isFinite(candle.high) &&
+        Number.isFinite(candle.low) &&
+        Number.isFinite(candle.close)
+    )
+    .sort((a, b) => a.timestampMs - b.timestampMs);
+}
+
+function shouldUseFiveMinute(startAt, endAt) {
+  const windowMs = endAt.getTime() - startAt.getTime();
+  return windowMs > 24 * 60 * 60 * 1000;
+}
+
+function computeOutputSize(startAt, endAt, intervalMinutes) {
+  const windowMs = Math.max(0, endAt.getTime() - startAt.getTime());
+  const intervalMs = intervalMinutes * 60 * 1000;
+  const estimated = Math.ceil(windowMs / intervalMs) + 5;
+  return Math.min(Math.max(estimated, 1), 5000);
+}
+
+async function requestTwelveData(params) {
+  const response = await axios.get("https://api.twelvedata.com/time_series", {
+    params,
+  });
+  const payload = response?.data || {};
+  if (payload.status === "error") {
+    const message = String(payload.message || "Market API error");
+    const lower = message.toLowerCase();
+    const rangeIssue =
+      lower.includes("start_date") || lower.includes("end_date");
+    return { error: message, rangeIssue };
+  }
+  return { data: payload, rangeIssue: false };
+}
+
+async function fetchCandleHistory(pair, startAt, endAt) {
+  const apiKey = MARKET_API_KEY.value();
+  if (!apiKey) {
+    throw new Error("MARKET_API_KEY is not set");
+  }
+  const symbol = normalizeMarketSymbol(pair);
+  if (!symbol) {
+    throw new Error("Signal pair is missing");
+  }
+  const useFiveMin = shouldUseFiveMinute(startAt, endAt);
+  const interval = useFiveMin ? "5min" : "1min";
+  const intervalMinutes = useFiveMin ? 5 : 1;
+  const outputsize = computeOutputSize(startAt, endAt, intervalMinutes);
+  const baseParams = {
+    symbol,
+    interval,
+    outputsize,
+    timezone: "UTC",
+    format: "JSON",
+    apikey: apiKey,
+  };
+  const rangeParams = {
+    ...baseParams,
+    start_date: formatUtcDateTime(startAt),
+    end_date: formatUtcDateTime(endAt),
+  };
+
+  let payload = await requestTwelveData(rangeParams);
+  if (payload.error) {
+    if (payload.rangeIssue) {
+      payload = await requestTwelveData(baseParams);
+    } else {
+      throw new Error(payload.error);
+    }
+  }
+
+  const values = Array.isArray(payload.data?.values) ? payload.data.values : [];
+  if (!values.length) {
+    throw new Error("Market API returned no candle data");
+  }
+
+  let candles = parseCandles(values);
+  if (!candles.length) {
+    throw new Error("Market API candles invalid");
+  }
+
+  const startMs = startAt.getTime();
+  const endMs = endAt.getTime();
+  const filtered = candles.filter(
+    (candle) => candle.timestampMs >= startMs && candle.timestampMs <= endMs
+  );
+  if (filtered.length) {
+    candles = filtered;
+  }
+
+  return candles;
+}
+
+function evaluateCandles(candles, direction, tp, sl) {
+  let tpIndex = null;
+  let slIndex = null;
+  for (let i = 0; i < candles.length; i += 1) {
+    const candle = candles[i];
+    if (direction === "buy") {
+      if (tpIndex === null && candle.high >= tp) {
+        tpIndex = i;
+      }
+      if (slIndex === null && candle.low <= sl) {
+        slIndex = i;
+      }
+    } else {
+      if (tpIndex === null && candle.low <= tp) {
+        tpIndex = i;
+      }
+      if (slIndex === null && candle.high >= sl) {
+        slIndex = i;
+      }
+    }
+    if (tpIndex !== null && slIndex !== null) {
+      break;
+    }
+  }
+
+  if (tpIndex === null && slIndex === null) {
+    return { result: "no_hit", tpIndex, slIndex };
+  }
+  if (tpIndex !== null && slIndex === null) {
+    return { result: "tp_hit", tpIndex, slIndex };
+  }
+  if (tpIndex === null && slIndex !== null) {
+    return { result: "sl_hit", tpIndex, slIndex };
+  }
+  if (tpIndex === slIndex) {
+    // Conservative rule: if TP and SL hit in the same candle, assume SL hit first.
+    return { result: "sl_hit", tpIndex, slIndex };
+  }
+  return tpIndex < slIndex
+    ? { result: "tp_hit", tpIndex, slIndex }
+    : { result: "sl_hit", tpIndex, slIndex };
+}
+
+function computePips(entry, closePrice, direction, unitSize) {
+  if (!Number.isFinite(entry) || !Number.isFinite(closePrice) || !unitSize) {
+    return null;
+  }
+  const raw =
+    direction === "sell"
+      ? (entry - closePrice) / unitSize
+      : (closePrice - entry) / unitSize;
+  return roundToOneDecimal(raw);
+}
+
+function resolveNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function evaluateSignalDocument({ doc, sourceLabel }) {
+  const data = doc.data() || {};
+  const pair = String(data.pair || "").trim();
+  const direction = String(data.direction || "").toLowerCase();
+  const entry = resolveNumber(
+    data.entry ?? data.entryPrice ?? data?.preview?.entryPrice
+  );
+  const tp = resolveNumber(data.tp ?? data.tp1 ?? data?.preview?.tp1);
+  const sl = resolveNumber(data.sl ?? data.stopLoss ?? data?.preview?.stopLoss);
+
+  if (!pair || !["buy", "sell"].includes(direction)) {
+    console.error(`${sourceLabel} skipped (invalid direction)`, {
+      signalId: doc.id,
+      direction,
+    });
+    return { updated: 0, failed: 0, skipped: 1 };
+  }
+  if (entry == null || tp == null || sl == null) {
+    console.error(`${sourceLabel} skipped (missing prices)`, {
+      signalId: doc.id,
+    });
+    return { updated: 0, failed: 0, skipped: 1 };
+  }
+
+  const nowDate = new Date();
+  let startAt = resolveWindowStart(data, nowDate);
+  const endAt = resolveWindowEnd(data);
+  if (!endAt) {
+    console.error(`${sourceLabel} skipped (missing endAt)`, {
+      signalId: doc.id,
+    });
+    return { updated: 0, failed: 0, skipped: 1 };
+  }
+  if (startAt.getTime() > endAt.getTime()) {
+    startAt = new Date(endAt.getTime() - 6 * 60 * 60 * 1000);
+  }
+
+  let candles;
+  try {
+    candles = await fetchCandleHistory(pair, startAt, endAt);
+  } catch (error) {
+    console.error(`${sourceLabel} candle fetch failed`, {
+      signalId: doc.id,
+      error: error?.message || error,
+    });
+    return { updated: 0, failed: 1, skipped: 0 };
+  }
+
+  if (!candles.length) {
+    console.error(`${sourceLabel} skipped (no candles)`, {
+      signalId: doc.id,
+    });
+    return { updated: 0, failed: 1, skipped: 0 };
+  }
+
+  const evaluation = evaluateCandles(candles, direction, tp, sl);
+  const result = evaluation.result;
+  const lastCandle = candles[candles.length - 1];
+  const closePriceForPips =
+    result === "tp_hit" ? tp : result === "sl_hit" ? sl : lastCandle.close;
+  const unit = resolveUnitInfo(pair);
+  const pips = computePips(entry, closePriceForPips, direction, unit.unitSize);
+
+  try {
+    await doc.ref.update({
+      status: "hidden",
+      result,
+      pips: pips ?? 0,
+      closedPrice: closePriceForPips,
+      closedAt: admin.firestore.FieldValue.serverTimestamp(),
+      evaluatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      evaluationWindowStart: admin.firestore.Timestamp.fromDate(startAt),
+      evaluationWindowEnd: admin.firestore.Timestamp.fromDate(endAt),
+      evaluationMethod: "candle_high_low",
+    });
+    console.log(`${sourceLabel} evaluated`, {
+      signalId: doc.id,
+      result,
+      pips,
+      unit: unit.unitLabel,
+      candles: candles.length,
+    });
+    return { updated: 1, failed: 0, skipped: 0 };
+  } catch (error) {
+    console.error(`${sourceLabel} update failed`, {
+      signalId: doc.id,
+      error: error?.message || error,
+    });
+    return { updated: 0, failed: 1, skipped: 0 };
+  }
+}
+
+exports.processExpiredSignals = functions.pubsub
+  .schedule("every 5 minutes")
+  .timeZone("Africa/Dar_es_Salaam")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await db
+      .collection("signals")
+      .where("status", "==", "open")
+      .where("expiresAt", "<=", now)
+      .get();
+
+    if (snapshot.empty) {
+      console.log("processExpiredSignals done", {
+        processed: 0,
+        updated: 0,
+        failed: 0,
+      });
+      return null;
+    }
+
+    let updated = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const doc of snapshot.docs) {
+      const result = await evaluateSignalDocument({
+        doc,
+        sourceLabel: "processExpiredSignals",
+      });
+      updated += result.updated;
+      failed += result.failed;
+      skipped += result.skipped;
+    }
+
+    console.log("processExpiredSignals done", {
+      processed: snapshot.size,
+      updated,
+      failed,
+      skipped,
+    });
+    return null;
+  });
+
+exports.processExpiredSignalsPreview = functions.pubsub
+  .schedule("every 5 minutes")
+  .timeZone("Africa/Dar_es_Salaam")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await db
+      .collection("signals")
+      .where("status", "==", "open")
+      .where("preview.validUntil", "<=", now)
+      .get();
+
+    if (snapshot.empty) {
+      console.log("processExpiredSignalsPreview done", {
+        processed: 0,
+        updated: 0,
+        failed: 0,
+      });
+      return null;
+    }
+
+    let updated = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data() || {};
+      if (resolveDate(data.expiresAt)) {
+        skipped += 1;
+        continue;
+      }
+      const result = await evaluateSignalDocument({
+        doc,
+        sourceLabel: "processExpiredSignalsPreview",
+      });
+      updated += result.updated;
+      failed += result.failed;
+      skipped += result.skipped;
+    }
+
+    console.log("processExpiredSignalsPreview done", {
+      processed: snapshot.size,
+      updated,
+      failed,
+      skipped,
+    });
     return null;
   });

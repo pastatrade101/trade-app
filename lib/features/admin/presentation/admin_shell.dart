@@ -5,20 +5,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
 import '../../../core/models/app_user.dart';
-import '../../../core/models/report.dart';
 import '../../../core/models/revenue_stats.dart';
 import '../../../core/models/signal.dart';
 import '../../../core/utils/role_helpers.dart';
+import '../../../core/utils/time_format.dart';
 import '../../../core/widgets/app_section_card.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/firestore_error_widget.dart';
-import '../../home/presentation/signal_detail_screen.dart';
 import '../../profile/presentation/settings_screen.dart';
 import '../../testimonials/presentation/admin_testimonials_screen.dart';
 import 'affiliate_manager_screen.dart';
 import 'plan_manager_screen.dart';
-import 'pending_traders_screen.dart';
 import 'revenue_screen.dart';
+import '../services/sales_report_service.dart';
 import 'session_settings_screen.dart';
+import 'signal_moderation_screen.dart';
+import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final _adminTabProvider = StateProvider<int>((ref) => 0);
 
@@ -32,11 +34,6 @@ final _signalStatusProvider =
   return ref.watch(signalRepositoryProvider).watchSignalsByStatus(status);
 });
 
-final _reportsStatusProvider =
-    StreamProvider.family<List<ReportItem>, String>((ref, status) {
-  return ref.watch(reportRepositoryProvider).watchReportsByStatus(status);
-});
-
 final _adminUsersProvider = StreamProvider<List<AppUser>>((ref) {
   return ref.watch(userRepositoryProvider).watchUsers();
 });
@@ -47,6 +44,7 @@ final _revenueStatsProvider = StreamProvider<RevenueStats?>((ref) {
 
 final _adminUserSearchQueryProvider = StateProvider<String>((ref) => '');
 final _adminUserSearchActiveProvider = StateProvider<bool>((ref) => false);
+final _revenueReportBusyProvider = StateProvider<bool>((ref) => false);
 
 class AdminShell extends ConsumerWidget {
   const AdminShell({super.key});
@@ -87,12 +85,11 @@ class _AdminShellContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(_adminTabProvider);
     final navIndex = _navIndexForTab(selectedIndex);
-    final isUsersTab = selectedIndex == 3;
+    final isUsersTab = selectedIndex == 1;
     final searchActive = ref.watch(_adminUserSearchActiveProvider);
+    final reportBusy = ref.watch(_revenueReportBusyProvider);
     const tabs = [
       AdminDashboardTab(),
-      ModerateSignalsTab(),
-      ReportManagementTab(),
       UserManagementTab(),
       ContentManagementTab(),
       RevenueScreen(),
@@ -104,9 +101,26 @@ class _AdminShellContent extends ConsumerWidget {
             ? const _AdminUserSearchField()
             : const Text('Admin panel'),
         actions: [
+          if (selectedIndex == 3)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                onPressed:
+                    reportBusy ? null : () => _downloadReport(context, ref),
+                icon: reportBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(AppIcons.download),
+                label:
+                    Text(reportBusy ? 'Preparing...' : 'Download sales report'),
+              ),
+            ),
           if (isUsersTab)
             IconButton(
-              icon: Icon(searchActive ? Icons.close : Icons.search),
+              icon: Icon(searchActive ? AppIcons.close : AppIcons.search),
               tooltip: searchActive ? 'Close search' : 'Search users',
               onPressed: () {
                 final notifier =
@@ -119,7 +133,7 @@ class _AdminShellContent extends ConsumerWidget {
               },
             ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(AppIcons.settings),
             tooltip: 'Settings',
             onPressed: () {
               Navigator.of(context).push(
@@ -133,6 +147,10 @@ class _AdminShellContent extends ConsumerWidget {
         key: ValueKey(selectedIndex),
         child: tabs[selectedIndex],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openAddBroker(context),
+        child: const Icon(AppIcons.add),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navIndex,
         onDestinationSelected: (value) {
@@ -141,24 +159,23 @@ class _AdminShellContent extends ConsumerWidget {
             return;
           }
           if (value == 1) {
-            ref.read(_adminTabProvider.notifier).state = 4;
+            ref.read(_adminTabProvider.notifier).state = 2;
             return;
           }
           if (value == 2) {
-            ref.read(_adminTabProvider.notifier).state = 5;
+            ref.read(_adminTabProvider.notifier).state = 3;
             return;
           }
           _openAdminMenu(context, ref);
         },
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.dashboard), label: 'Dashboard'),
+              icon: Icon(AppIcons.dashboard), label: 'Dashboard'),
           NavigationDestination(
-              icon: Icon(Icons.content_copy), label: 'Content'),
+              icon: Icon(AppIcons.content_copy), label: 'Content'),
           NavigationDestination(
-              icon: Icon(Icons.payments_outlined), label: 'Revenue'),
-          NavigationDestination(
-              icon: Icon(Icons.menu), label: 'Menu'),
+              icon: Icon(AppIcons.payments_outlined), label: 'Revenue'),
+          NavigationDestination(icon: Icon(AppIcons.menu), label: 'Menu'),
         ],
       ),
     );
@@ -168,10 +185,10 @@ class _AdminShellContent extends ConsumerWidget {
     if (tabIndex == 0) {
       return 0;
     }
-    if (tabIndex == 4) {
+    if (tabIndex == 2) {
       return 1;
     }
-    if (tabIndex == 5) {
+    if (tabIndex == 3) {
       return 2;
     }
     return 3;
@@ -199,27 +216,35 @@ class _AdminShellContent extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               ListTile(
-                leading: const Icon(Icons.shield),
-                title: const Text('Moderate signals'),
+                leading: const Icon(AppIcons.people),
+                title: const Text('Users'),
                 onTap: () {
                   Navigator.of(context).pop();
                   ref.read(_adminTabProvider.notifier).state = 1;
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.report),
-                title: const Text('Reports'),
+                leading: const Icon(AppIcons.payments_outlined),
+                title: const Text('Publish plans'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  ref.read(_adminTabProvider.notifier).state = 2;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PlanManagerScreen(),
+                    ),
+                  );
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.people),
-                title: const Text('Users'),
+                leading: const Icon(AppIcons.settings_outlined),
+                title: const Text('Session settings'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  ref.read(_adminTabProvider.notifier).state = 3;
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SessionSettingsScreen(),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 12),
@@ -228,6 +253,73 @@ class _AdminShellContent extends ConsumerWidget {
         );
       },
     );
+  }
+
+  void _openAddBroker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(AppIcons.handshake),
+                title: const Text('Add broker'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BrokerManagerScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _downloadReport(BuildContext context, WidgetRef ref) async {
+    if (ref.read(_revenueReportBusyProvider)) {
+      return;
+    }
+    ref.read(_revenueReportBusyProvider.notifier).state = true;
+    try {
+      final profile = ref.read(currentUserProvider).valueOrNull;
+      if (profile == null || !isAdmin(profile.role)) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only admins can download sales reports.'),
+          ),
+        );
+        return;
+      }
+
+      final service = SalesReportService();
+      final payments = await service.fetchPaidSales();
+      final excel = service.buildSalesReport(payments);
+      final file = await service.saveReportFile(excel);
+      await service.shareReport(file);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to generate sales report.'),
+        ),
+      );
+    } finally {
+      ref.read(_revenueReportBusyProvider.notifier).state = false;
+    }
   }
 }
 
@@ -273,11 +365,7 @@ class AdminDashboardTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final openSignals = ref.watch(_signalStatusProvider('open'));
-    final hiddenSignals = ref.watch(_signalStatusProvider('hidden'));
-    final openReports = ref.watch(_reportsStatusProvider('open'));
     final users = ref.watch(_adminUsersProvider);
-    final revenueStats = ref.watch(_revenueStatsProvider);
     final tokens = AppThemeTokens.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -307,63 +395,29 @@ class AdminDashboardTab extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const spacing = 12.0;
-                  final width =
-                      (constraints.maxWidth - spacing) / 2;
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: spacing,
-                    children: [
-                      SizedBox(
-                        width: width,
-                        child: _DashboardMetricCard<Signal>(
-                          label: 'Active signals',
-                          state: openSignals,
-                          accent: tokens.success,
-                          icon: Icons.trending_up,
-                        ),
-                      ),
-                      SizedBox(
-                        width: width,
-                        child: _DashboardMetricCard<Signal>(
-                          label: 'Hidden signals',
-                          state: hiddenSignals,
-                          accent: tokens.warning,
-                          icon: Icons.visibility_off,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+              _DashboardMetricCard<Signal>(
+                label: 'Active signals',
+                state: ref.watch(_signalStatusProvider('open')),
+                accent: tokens.success,
+                icon: AppIcons.trending_up,
               ),
               const SizedBox(height: 12),
-              _DashboardWideMetricCard<ReportItem>(
-                label: 'Open reports',
-                state: openReports,
-                accent: colorScheme.error,
-                icon: Icons.report,
-              ),
-              const SizedBox(height: 12),
-              _RevenueSnapshotCard(state: revenueStats),
+              _RevenueSnapshotCard(state: ref.watch(_revenueStatsProvider)),
               const SizedBox(height: 16),
               _DashboardCountTile(
                 label: 'Traders',
                 value: traderCount,
-                icon: Icons.groups,
+                icon: AppIcons.groups,
                 accent: colorScheme.primary,
-                onTap: () =>
-                    ref.read(_adminTabProvider.notifier).state = 3,
+                onTap: () => ref.read(_adminTabProvider.notifier).state = 1,
               ),
               const SizedBox(height: 12),
               _DashboardCountTile(
                 label: 'Members',
                 value: memberCount,
-                icon: Icons.person_outline,
+                icon: AppIcons.person_outline,
                 accent: colorScheme.secondary,
-                onTap: () =>
-                    ref.read(_adminTabProvider.notifier).state = 3,
+                onTap: () => ref.read(_adminTabProvider.notifier).state = 1,
               ),
               const SizedBox(height: 24),
               Text(
@@ -377,8 +431,7 @@ class AdminDashboardTab extends ConsumerWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   const spacing = 12.0;
-                  final width =
-                      (constraints.maxWidth - spacing) / 2;
+                  final width = (constraints.maxWidth - spacing) / 2;
                   return Wrap(
                     spacing: spacing,
                     runSpacing: spacing,
@@ -386,41 +439,18 @@ class AdminDashboardTab extends ConsumerWidget {
                       SizedBox(
                         width: width,
                         child: _QuickActionCard(
-                          label: 'Moderate signals',
-                          icon: Icons.shield_outlined,
-                          color: colorScheme.primary,
-                          onTap: () => ref
-                              .read(_adminTabProvider.notifier)
-                              .state = 1,
-                        ),
-                      ),
-                      SizedBox(
-                        width: width,
-                        child: _QuickActionCard(
-                          label: 'Review reports',
-                          icon: Icons.description_outlined,
-                          color: colorScheme.tertiary,
-                          onTap: () => ref
-                              .read(_adminTabProvider.notifier)
-                              .state = 2,
-                        ),
-                      ),
-                      SizedBox(
-                        width: width,
-                        child: _QuickActionCard(
                           label: 'Manage users',
-                          icon: Icons.group_outlined,
+                          icon: AppIcons.group_outlined,
                           color: tokens.success,
-                          onTap: () => ref
-                              .read(_adminTabProvider.notifier)
-                              .state = 3,
+                          onTap: () =>
+                              ref.read(_adminTabProvider.notifier).state = 1,
                         ),
                       ),
                       SizedBox(
                         width: width,
                         child: _QuickActionCard(
                           label: 'Session settings',
-                          icon: Icons.settings_outlined,
+                          icon: AppIcons.settings_outlined,
                           color: tokens.warning,
                           onTap: () {
                             Navigator.of(context).push(
@@ -435,7 +465,7 @@ class AdminDashboardTab extends ConsumerWidget {
                         width: width,
                         child: _QuickActionCard(
                           label: 'Publish plans',
-                          icon: Icons.payments_outlined,
+                          icon: AppIcons.payments_outlined,
                           color: colorScheme.primary,
                           onTap: () {
                             Navigator.of(context).push(
@@ -447,16 +477,6 @@ class AdminDashboardTab extends ConsumerWidget {
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _PendingTradersCard(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PendingTradersScreen(),
-                    ),
                   );
                 },
               ),
@@ -608,7 +628,8 @@ class _RevenueSnapshotCard extends StatelessWidget {
             final data = stats ?? RevenueStats.empty();
             return Row(
               children: [
-                _MetricIcon(icon: Icons.payments_outlined, color: tokens.success),
+                _MetricIcon(
+                    icon: AppIcons.payments_outlined, color: tokens.success),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -705,7 +726,7 @@ class _DashboardCountTile extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right),
+            const Icon(AppIcons.chevron_right),
           ],
         ),
         onTap: onTap,
@@ -757,337 +778,6 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _PendingTradersCard extends StatelessWidget {
-  const _PendingTradersCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = AppThemeTokens.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: [
-              tokens.heroStart.withOpacity(0.95),
-              tokens.heroEnd.withOpacity(0.9),
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.person_search, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Pending traders',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ModerateSignalsTab extends ConsumerWidget {
-  const ModerateSignalsTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          const TabBar(
-            tabs: [
-              Tab(text: 'Active'),
-              Tab(text: 'Hidden'),
-              Tab(text: 'Reported'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _SignalModerationList(status: 'open'),
-                _SignalModerationList(status: 'hidden'),
-                _ReportListTab(status: 'open'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SignalModerationList extends ConsumerWidget {
-  const _SignalModerationList({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final signalsState = ref.watch(_signalStatusProvider(status));
-    return signalsState.when(
-      data: (signals) {
-        if (signals.isEmpty) {
-          return const Center(child: Text('No signals.'));
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: signals.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final signal = signals[index];
-            return ListTile(
-              title: Text('${signal.pair} (${signal.direction})'),
-              subtitle: Text('Status: ${_signalStatusLabel(signal.status)}'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              SignalDetailScreen(signalId: signal.id),
-                        ),
-                      );
-                    },
-                    child: const Text('Resolve'),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) async {
-                      if (value == 'view') {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SignalDetailScreen(signalId: signal.id),
-                          ),
-                        );
-                      } else if (value == 'resolve') {
-                        final outcome = await _selectOutcome(context);
-                        if (outcome != null) {
-                          await _resolveSignal(ref, signal, outcome, context);
-                        }
-                      } else if (value == 'toggle') {
-                        await ref.read(signalRepositoryProvider).updateSignal(
-                          signal.id,
-                          {
-                            'status':
-                                signal.status == 'hidden' ? 'open' : 'hidden',
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          },
-                        );
-                      }
-                    },
-                    itemBuilder: (context) {
-                      return [
-                        const PopupMenuItem(value: 'view', child: Text('View')),
-                        PopupMenuItem(value: 'resolve', child: Text('Resolve')),
-                        PopupMenuItem(
-                          value: 'toggle',
-                          child: Text(
-                              signal.status == 'hidden' ? 'Unhide' : 'Hide'),
-                        ),
-                      ];
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: FirestoreErrorWidget(
-          error: error,
-          stackTrace: stack,
-          title: 'Signals failed to load',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _resolveSignal(
-    WidgetRef ref,
-    Signal signal,
-    String outcome,
-    BuildContext context,
-  ) async {
-    try {
-      await ref.read(signalRepositoryProvider).updateSignal(
-        signal.id,
-        {
-          'status': 'resolved',
-          'resolvedBy': 'admin',
-          'resolvedAt': FieldValue.serverTimestamp(),
-          'finalOutcome': outcome,
-          'lockVotes': true,
-          'voteAgg.consensusOutcome': outcome,
-          'voteAgg.consensusConfidence': 1.0,
-        },
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Signal resolved')),
-        );
-      }
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to resolve: $error')),
-        );
-      }
-    }
-  }
-}
-
-class _ReportListTab extends ConsumerWidget {
-  const _ReportListTab({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(authStateProvider).when(
-          data: (user) {
-            if (user == null) {
-              return const Center(child: Text('Sign in to view reports.'));
-            }
-            return ref.watch(currentUserProvider).when(
-                  data: (profile) {
-                    if (profile == null || !isAdmin(profile.role)) {
-                      return const Center(
-                          child: Text('Admin access required.'));
-                    }
-                    final reportsState =
-                        ref.watch(_reportsStatusProvider(status));
-                    return reportsState.when(
-                      data: (reports) {
-                        if (reports.isEmpty) {
-                          return const Center(child: Text('No reports.'));
-                        }
-                        return ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: reports.length,
-                          separatorBuilder: (_, __) => const Divider(),
-                          itemBuilder: (context, index) {
-                            final report = reports[index];
-                            return ListTile(
-                              title: Text(
-                                  '${report.targetType} · ${report.reason}'),
-                              subtitle: Text(report.details),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) async {
-                                  if (value == 'close') {
-                                    await ref
-                                        .read(reportRepositoryProvider)
-                                        .closeReport(report.id);
-                                  } else if (value == 'unhide' &&
-                                      report.targetType == 'signal') {
-                                    await ref
-                                        .read(signalRepositoryProvider)
-                                        .updateSignal(
-                                      report.targetId,
-                                      {'status': 'open'},
-                                    );
-                                    await ref
-                                        .read(reportRepositoryProvider)
-                                        .closeReport(report.id);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'close',
-                                    child: Text('Close report'),
-                                  ),
-                                  if (report.targetType == 'signal')
-                                    const PopupMenuItem(
-                                      value: 'unhide',
-                                      child: Text('Unhide signal'),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (error, stack) => Center(
-                        child: FirestoreErrorWidget(
-                          error: error,
-                          stackTrace: stack,
-                          title: 'Reports failed to load',
-                        ),
-                      ),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, stack) => Center(
-                    child: FirestoreErrorWidget(
-                      error: error,
-                      stackTrace: stack,
-                      title: 'Report profile failed',
-                    ),
-                  ),
-                );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: FirestoreErrorWidget(
-              error: error,
-              stackTrace: stack,
-              title: 'Reports access failed',
-            ),
-          ),
-        );
-  }
-}
-
-class ReportManagementTab extends ConsumerWidget {
-  const ReportManagementTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          const TabBar(
-            tabs: [
-              Tab(text: 'Open'),
-              Tab(text: 'Closed'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _ReportListTab(status: 'open'),
-                _ReportListTab(status: 'closed'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class UserManagementTab extends ConsumerStatefulWidget {
   const UserManagementTab({super.key});
 
@@ -1096,144 +786,16 @@ class UserManagementTab extends ConsumerStatefulWidget {
 }
 
 class _UserManagementTabState extends ConsumerState<UserManagementTab> {
-  final Set<String> _roleFilter = {};
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  void _toggleRole(String role) {
-    setState(() {
-      if (_roleFilter.contains(role)) {
-        _roleFilter.remove(role);
-      } else {
-        _roleFilter.add(role);
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final usersState = ref.watch(_adminUsersProvider);
     final search =
         ref.watch(_adminUserSearchQueryProvider).trim().toLowerCase();
-    final tokens = AppThemeTokens.of(context);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       child: Column(
         children: [
-          AppSectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Manage users',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ['member', 'trader', 'admin']
-                      .map(
-                        (role) => FilterChip(
-                          label: Text(roleLabel(role)),
-                          selected: _roleFilter.contains(role),
-                          onSelected: (_) => _toggleRole(role),
-                        ),
-                      )
-                      .toList(),
-                ),
-                if (_roleFilter.isNotEmpty || search.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Filters active',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: tokens.mutedText,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            ref
-                                .read(_adminUserSearchQueryProvider.notifier)
-                                .state = '';
-                            _roleFilter.clear();
-                            setState(() {});
-                          },
-                          child: const Text('Reset'),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                usersState.maybeWhen(
-                  data: (users) {
-                    final filtered = users.where((user) {
-                      final matchesSearch = search.isEmpty ||
-                          user.displayName.toLowerCase().contains(search) ||
-                          user.username.toLowerCase().contains(search);
-                      final matchesRole = _roleFilter.isEmpty ||
-                          _roleFilter.contains(normalizeRole(user.role));
-                      return matchesSearch && matchesRole;
-                    }).toList();
-                    final traderCount = users
-                        .where((user) => normalizeRole(user.role) == 'trader')
-                        .length;
-                    final memberCount = users
-                        .where((user) => normalizeRole(user.role) == 'member')
-                        .length;
-                    final adminCount = users
-                        .where((user) => normalizeRole(user.role) == 'admin')
-                        .length;
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _UserCountChip(
-                          label: 'Total',
-                          value: users.length.toString(),
-                        ),
-                        _UserCountChip(
-                          label: 'Showing',
-                          value: filtered.length.toString(),
-                        ),
-                        _UserCountChip(
-                          label: 'Traders',
-                          value: traderCount.toString(),
-                        ),
-                        _UserCountChip(
-                          label: 'Members',
-                          value: memberCount.toString(),
-                        ),
-                        _UserCountChip(
-                          label: 'Admins',
-                          value: adminCount.toString(),
-                        ),
-                      ],
-                    );
-                  },
-                  orElse: () => Row(
-                    children: [
-                      _UserCountChip(label: 'Total', value: '...'),
-                      const SizedBox(width: 8),
-                      _UserCountChip(label: 'Showing', value: '...'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
           Expanded(
             child: usersState.when(
               data: (users) {
@@ -1241,16 +803,14 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
                   final matchesSearch = search.isEmpty ||
                       user.displayName.toLowerCase().contains(search) ||
                       user.username.toLowerCase().contains(search);
-                  final matchesRole = _roleFilter.isEmpty ||
-                      _roleFilter.contains(normalizeRole(user.role));
-                  return matchesSearch && matchesRole;
+                  return matchesSearch;
                 }).toList();
                 return filtered.isEmpty
                     ? const Center(child: Text('No users match.'))
                     : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 12),
                         itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final user = filtered[index];
                           return _UserItemTile(user: user);
@@ -1273,32 +833,84 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
   }
 }
 
-class _UserItemTile extends ConsumerWidget {
+class _UserItemTile extends ConsumerStatefulWidget {
   const _UserItemTile({required this.user});
 
   final AppUser user;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UserItemTile> createState() => _UserItemTileState();
+}
+
+class _UserItemTileState extends ConsumerState<_UserItemTile> {
+  bool _trialTestLoading = false;
+  bool _purchaseTestLoading = false;
+
+  Future<void> _sendTrialTest() async {
+    setState(() => _trialTestLoading = true);
+    try {
+      await ref.read(adminNotificationServiceProvider).testTrialNotification(
+            memberName: widget.user.displayName.isNotEmpty
+                ? widget.user.displayName
+                : 'Member',
+            memberUid: widget.user.uid,
+          );
+      AppToast.success(context, 'Trial notification sent.');
+    } catch (error) {
+      AppToast.error(context, error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _trialTestLoading = false);
+      }
+    }
+  }
+
+  Future<void> _sendPurchaseTest() async {
+    setState(() => _purchaseTestLoading = true);
+    try {
+      await ref.read(adminNotificationServiceProvider).testPurchaseNotification(
+            memberName: widget.user.displayName.isNotEmpty
+                ? widget.user.displayName
+                : 'Member',
+            memberUid: widget.user.uid,
+          );
+      AppToast.success(context, 'Purchase notification sent.');
+    } catch (error) {
+      AppToast.error(context, error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _purchaseTestLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.user;
     final tokens = AppThemeTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final displayName = user.displayName.isNotEmpty ? user.displayName : 'User';
-    final username = user.username.isNotEmpty ? '@${user.username}' : 'No username';
+    final username =
+        user.username.isNotEmpty ? '@${user.username}' : 'No username';
+    final email = user.email.isNotEmpty ? user.email : null;
     final role = normalizeRole(user.role);
-    final traderStatus =
-        role == 'trader' ? user.traderStatus : null;
+    final traderStatus = isTrader(role) ? user.traderStatus : null;
+    final subtitleParts = <String>[
+      if (email != null) email,
+      username,
+      roleLabel(role),
+    ];
 
-    return AppSectionCard(
-      padding: EdgeInsets.zero,
-      useShadow: false,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ListTileTheme(
+        dense: true,
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(68, 4, 12, 12),
           leading: CircleAvatar(
-            radius: 20,
+            radius: 22,
             backgroundColor: colorScheme.primary.withOpacity(0.12),
             backgroundImage:
                 user.avatarUrl.isNotEmpty ? NetworkImage(user.avatarUrl) : null,
@@ -1327,7 +939,7 @@ class _UserItemTile extends ConsumerWidget {
               if (user.isVerified) ...[
                 const SizedBox(width: 6),
                 Icon(
-                  Icons.verified,
+                  AppIcons.verified,
                   size: 14,
                   color: tokens.success,
                 ),
@@ -1335,7 +947,7 @@ class _UserItemTile extends ConsumerWidget {
               if (user.isBanned) ...[
                 const SizedBox(width: 6),
                 const Icon(
-                  Icons.block,
+                  AppIcons.block,
                   size: 14,
                   color: Colors.redAccent,
                 ),
@@ -1343,7 +955,7 @@ class _UserItemTile extends ConsumerWidget {
             ],
           ),
           subtitle: Text(
-            '$username · ${roleLabel(role)}',
+            subtitleParts.join(' · '),
             style: textTheme.bodySmall?.copyWith(
               color: tokens.mutedText,
               fontWeight: FontWeight.w600,
@@ -1382,9 +994,17 @@ class _UserItemTile extends ConsumerWidget {
                   value: role,
                   onChanged: (value) {
                     if (value != null && value != normalizeRole(user.role)) {
-                      ref.read(userRepositoryProvider).updateUser(user.uid, {
-                        'role': value,
-                      });
+                      final update = <String, dynamic>{'role': value};
+                      if (value == 'trader' || value == 'trader_admin') {
+                        update['traderStatus'] = 'active';
+                        update['rejectReason'] = null;
+                      } else {
+                        update['traderStatus'] = 'none';
+                      }
+                      ref.read(userRepositoryProvider).updateUser(
+                            user.uid,
+                            update,
+                          );
                     }
                   },
                 ),
@@ -1397,7 +1017,7 @@ class _UserItemTile extends ConsumerWidget {
               children: [
                 _UserToggleChip(
                   label: 'Verified',
-                  icon: Icons.verified,
+                  icon: AppIcons.verified,
                   color: tokens.success,
                   selected: user.isVerified,
                   onSelected: (value) {
@@ -1408,7 +1028,7 @@ class _UserItemTile extends ConsumerWidget {
                 ),
                 _UserToggleChip(
                   label: 'Banned',
-                  icon: Icons.block,
+                  icon: AppIcons.block,
                   color: Colors.redAccent,
                   selected: user.isBanned,
                   onSelected: (value) {
@@ -1416,6 +1036,47 @@ class _UserItemTile extends ConsumerWidget {
                       'isBanned': value,
                     });
                   },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (user.membership?.source == 'trial' &&
+                user.membership?.expiresAt != null &&
+                user.membership!.isPremiumActive()) ...[
+              Text(
+                'Trial ends ${formatTanzaniaDateTime(user.membership!.expiresAt!)}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: tokens.warning,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _trialTestLoading ? null : _sendTrialTest,
+                  icon: _trialTestLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(AppIcons.timer),
+                  label: const Text('Test trial notice'),
+                ),
+                FilledButton.icon(
+                  onPressed: _purchaseTestLoading ? null : _sendPurchaseTest,
+                  icon: _purchaseTestLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(AppIcons.payments_outlined),
+                  label: const Text('Test purchase notice'),
                 ),
               ],
             ),
@@ -1458,6 +1119,8 @@ class _RoleDropdown extends StatelessWidget {
           items: const [
             DropdownMenuItem(value: 'member', child: Text('Member')),
             DropdownMenuItem(value: 'trader', child: Text('Trader')),
+            DropdownMenuItem(
+                value: 'trader_admin', child: Text('Trader Admin')),
             DropdownMenuItem(value: 'admin', child: Text('Admin')),
           ],
           onChanged: onChanged,
@@ -1477,8 +1140,7 @@ class _UserTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
-    final textColor =
-        color == tokens.mutedText ? tokens.mutedText : color;
+    final textColor = color == tokens.mutedText ? tokens.mutedText : color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -1601,8 +1263,7 @@ class _AdminUserSearchFieldState extends ConsumerState<_AdminUserSearchField> {
       text: ref.read(_adminUserSearchQueryProvider),
     );
     _controller.addListener(() {
-      ref.read(_adminUserSearchQueryProvider.notifier).state =
-          _controller.text;
+      ref.read(_adminUserSearchQueryProvider.notifier).state = _controller.text;
     });
   }
 
@@ -1623,11 +1284,11 @@ class _AdminUserSearchFieldState extends ConsumerState<_AdminUserSearchField> {
           autofocus: true,
           decoration: InputDecoration(
             hintText: 'Search users',
-            prefixIcon: const Icon(Icons.search),
+            prefixIcon: const Icon(AppIcons.search),
             suffixIcon: value.text.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     tooltip: 'Clear',
                     onPressed: () => _controller.clear(),
                   ),
@@ -1665,7 +1326,7 @@ class ContentManagementTab extends StatelessWidget {
           child: ListTile(
             title: const Text('Testimonials'),
             subtitle: const Text('Review or unpublish curated proof'),
-            trailing: const Icon(Icons.arrow_forward),
+            trailing: const Icon(AppIcons.arrow_forward),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -1679,11 +1340,10 @@ class ContentManagementTab extends StatelessWidget {
           child: ListTile(
             title: const Text('Brokers'),
             subtitle: const Text('Manage trusted broker list'),
-            trailing: const Icon(Icons.arrow_forward),
+            trailing: const Icon(AppIcons.arrow_forward),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const BrokerManagerScreen()),
+                MaterialPageRoute(builder: (_) => const BrokerManagerScreen()),
               );
             },
           ),
@@ -1692,7 +1352,7 @@ class ContentManagementTab extends StatelessWidget {
           child: ListTile(
             title: const Text('Session settings'),
             subtitle: const Text('Configure trading session durations'),
-            trailing: const Icon(Icons.arrow_forward),
+            trailing: const Icon(AppIcons.arrow_forward),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -1702,41 +1362,21 @@ class ContentManagementTab extends StatelessWidget {
             },
           ),
         ),
+        Card(
+          child: ListTile(
+            title: const Text('Signal results'),
+            subtitle: const Text('Preview auto-evaluated signals'),
+            trailing: const Icon(AppIcons.arrow_forward),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SignalModerationScreen(),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
-}
-
-Future<String?> _selectOutcome(BuildContext context) {
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Select final outcome'),
-      content: Wrap(
-        spacing: 8,
-        children: ['TP', 'SL', 'BE', 'PARTIAL']
-            .map(
-              (outcome) => ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(outcome),
-                child: Text(outcome),
-              ),
-            )
-            .toList(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ],
-    ),
-  );
-}
-
-String _signalStatusLabel(String status) {
-  final normalized = status.toLowerCase();
-  if (normalized == 'voting') {
-    return 'closed';
-  }
-  return status.replaceAll('_', ' ');
 }
