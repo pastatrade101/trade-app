@@ -259,7 +259,9 @@ class _PairFilterAction extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(signalFeedFilterProvider);
     final tokens = AppThemeTokens.of(context);
-    final label = filter.pair ?? 'All pairs';
+    final label = filter.pair == null
+        ? 'All pairs'
+        : (AppConstants.instrumentLabels[filter.pair] ?? filter.pair!);
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
@@ -355,8 +357,9 @@ class _PairPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final items = <String?>[null, ...AppConstants.instruments];
+    final categories = AppConstants.instrumentCategories;
     final height = MediaQuery.of(context).size.height * 0.86;
+    final selectedAll = selectedPair == null;
 
     return SizedBox(
       height: height,
@@ -392,70 +395,106 @@ class _PairPickerSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: ListView.separated(
+            child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final pair = items[index];
-                final label = pair ?? 'All pairs';
-                final isSelected =
-                    (pair == null && selectedPair == null) ||
-                        pair == selectedPair;
-                final value = pair ?? allPairsValue;
-                return Material(
-                  color: isSelected ? tokens.surfaceAlt : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => Navigator.of(context).pop(value),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected
-                              ? colorScheme.primary
-                              : tokens.border,
+              children: [
+                _PairOptionTile(
+                  label: 'All pairs',
+                  isSelected: selectedAll,
+                  tokens: tokens,
+                  colorScheme: colorScheme,
+                  onTap: () => Navigator.of(context).pop(allPairsValue),
+                ),
+                for (final category in categories) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    category.label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: tokens.mutedText,
+                          letterSpacing: 0.3,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.stacked_line_chart,
-                            size: 18,
-                            color: isSelected
-                                ? colorScheme.primary
-                                : tokens.mutedText,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style:
-                                  Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                            ),
-                          ),
-                          if (isSelected)
-                            Icon(
-                              AppIcons.check_circle,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                        ],
+                  ),
+                  const SizedBox(height: 8),
+                  for (final option in category.options)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _PairOptionTile(
+                        label: option.label,
+                        isSelected: option.symbol == selectedPair,
+                        tokens: tokens,
+                        colorScheme: colorScheme,
+                        onTap: () => Navigator.of(context).pop(option.symbol),
                       ),
                     ),
-                  ),
-                );
-              },
+                ],
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PairOptionTile extends StatelessWidget {
+  const _PairOptionTile({
+    required this.label,
+    required this.isSelected,
+    required this.tokens,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final AppThemeTokens tokens;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? tokens.surfaceAlt : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? colorScheme.primary : tokens.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                AppIcons.stacked_line_chart,
+                size: 18,
+                color: isSelected ? colorScheme.primary : tokens.mutedText,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  AppIcons.check_circle,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

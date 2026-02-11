@@ -7,6 +7,7 @@ import '../../../core/models/app_user.dart';
 import '../../../core/models/stats_summary.dart';
 import '../../../core/models/validator_stats.dart';
 import '../../../core/utils/validators.dart';
+import '../../../core/config/app_constants.dart';
 import '../../home/presentation/home_shell.dart';
 
 class TraderApplicationScreen extends ConsumerStatefulWidget {
@@ -27,7 +28,8 @@ class TraderApplicationScreen extends ConsumerStatefulWidget {
 class _TraderApplicationScreenState
     extends ConsumerState<TraderApplicationScreen> {
   static const sessions = ['Asia', 'London', 'NewYork'];
-  static const instruments = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSD'];
+  static final instruments = AppConstants.instruments;
+  static final instrumentLabels = AppConstants.instrumentLabels;
   static const strategyStyles = ['Scalper', 'Swing', 'Intraday'];
   static const experienceLevels = ['Beginner', 'Intermediate', 'Pro'];
 
@@ -197,6 +199,7 @@ class _TraderApplicationScreenState
     required String label,
     required List<String> options,
     required Set<String> selected,
+    Map<String, String>? labels,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +211,7 @@ class _TraderApplicationScreenState
           children: options.map((option) {
             final isSelected = selected.contains(option);
             return FilterChip(
-              label: Text(option),
+              label: Text(labels?[option] ?? option),
               selected: isSelected,
               onSelected: (selectedValue) {
                 setState(() {
@@ -273,7 +276,8 @@ class _TraderApplicationScreenState
               _buildMultiSelect(
                   label: 'Instruments',
                   options: instruments,
-                  selected: _selectedInstruments),
+                  selected: _selectedInstruments,
+                  labels: instrumentLabels),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _strategyStyle,

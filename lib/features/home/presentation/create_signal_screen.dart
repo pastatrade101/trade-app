@@ -262,9 +262,11 @@ class _CreateSignalScreenState extends ConsumerState<CreateSignalScreen> {
               DropdownButtonFormField<String>(
                 value: _pair,
                 decoration: const InputDecoration(labelText: 'Pair'),
-                items: AppConstants.instruments
-                    .map((pair) =>
-                        DropdownMenuItem(value: pair, child: Text(pair)))
+                items: AppConstants.instrumentOptions
+                    .map((option) => DropdownMenuItem(
+                          value: option.symbol,
+                          child: Text(option.label),
+                        ))
                     .toList(),
                 onChanged: (value) => setState(() => _pair = value),
               ),

@@ -6,6 +6,7 @@ class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
     super.key,
     required this.step,
+    this.totalSteps = 3,
     required this.title,
     required this.subtitle,
     required this.body,
@@ -13,6 +14,7 @@ class OnboardingScaffold extends StatelessWidget {
   });
 
   final int step;
+  final int totalSteps;
   final String title;
   final String subtitle;
   final Widget body;
@@ -37,7 +39,7 @@ class OnboardingScaffold extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              StepIndicator(step: step),
+              StepIndicator(step: step, total: totalSteps),
               const SizedBox(height: 24),
               Text(
                 title,

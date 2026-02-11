@@ -10,23 +10,27 @@ import '../../../core/repositories/signal_repository.dart';
 class SignalFeedFilter {
   final String? session;
   final String? pair;
+  final String? direction;
   final SignalFeedView view;
   static const Object _unset = Object();
 
   const SignalFeedFilter({
     this.session,
     this.pair,
+    this.direction,
     this.view = SignalFeedView.active,
   });
 
   SignalFeedFilter copyWith({
     String? session,
     Object? pair = _unset,
+    Object? direction = _unset,
     SignalFeedView? view,
   }) {
     return SignalFeedFilter(
       session: session ?? this.session,
       pair: pair == _unset ? this.pair : pair as String?,
+      direction: direction == _unset ? this.direction : direction as String?,
       view: view ?? this.view,
     );
   }
@@ -36,11 +40,12 @@ class SignalFeedFilter {
     return other is SignalFeedFilter &&
         other.session == session &&
         other.pair == pair &&
+        other.direction == direction &&
         other.view == view;
   }
 
   @override
-  int get hashCode => Object.hash(session, pair, view);
+  int get hashCode => Object.hash(session, pair, direction, view);
 }
 
 enum SignalFeedView { active, history }
@@ -103,6 +108,7 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
         limit: 20,
         session: _filter.session,
         pair: _filter.pair,
+        direction: _filter.direction,
         statuses: _statusesForView(_filter.view),
       );
       final filtered = _applyViewFilter(page.signals);
@@ -128,6 +134,7 @@ class SignalFeedController extends StateNotifier<AsyncValue<SignalFeedState>> {
         startAfter: current.lastDoc,
         session: _filter.session,
         pair: _filter.pair,
+        direction: _filter.direction,
         statuses: _statusesForView(_filter.view),
       );
       final filtered = _applyViewFilter(page.signals);

@@ -14,6 +14,8 @@ void main() {
       displayName: 'Trader Joe',
       username: 'traderjoe',
       usernameLower: 'traderjoe',
+      avatarUrl: '',
+      email: 'trader@example.com',
       bio: 'Bio',
       country: 'UK',
       sessions: const ['London'],
@@ -24,6 +26,7 @@ void main() {
       traderStatus: 'none',
       rejectReason: null,
       socials: const {},
+      socialLinks: const {},
       yearsExperience: 2,
       isVerified: false,
       verifiedAt: null,
@@ -58,6 +61,7 @@ void main() {
       stopLoss: 1900,
       tp1: 1950,
       tp2: 1970,
+      premiumOnly: false,
       riskLevel: 'Medium',
       session: 'London',
       validUntil: DateTime(2024, 1, 2),
@@ -71,8 +75,8 @@ void main() {
       resolvedBy: null,
       resolvedAt: null,
       finalOutcome: null,
-      validatorStatsUpdated: false,
-      qualityScore: 80,
+      likesCount: 0,
+      dislikesCount: 0,
     );
 
     final json = signal.toJson();

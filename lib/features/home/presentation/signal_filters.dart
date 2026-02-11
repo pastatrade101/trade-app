@@ -12,8 +12,12 @@ class SignalFilters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(signalFeedFilterProvider);
-    final pairItems = <String?>[null, ...AppConstants.instruments];
-    final pairLabels = <String>['All Pairs', ...AppConstants.instruments];
+    final options = AppConstants.instrumentOptions;
+    final pairItems = <String?>[null, ...options.map((option) => option.symbol)];
+    final pairLabels = <String>[
+      'All Pairs',
+      ...options.map((option) => option.label),
+    ];
     final directionItems = <String?>[null, ...AppConstants.directionOptions];
     final directionLabels = <String>[
       'All Directions',
