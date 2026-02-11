@@ -520,7 +520,10 @@ class _TraderProfileScreenState extends ConsumerState<TraderProfileScreen> {
                       ),
                     );
                   }
-                  final signals = snapshot.data!;
+                  final now = DateTime.now();
+                  final signals = snapshot.data!
+                      .where((signal) => signal.validUntil.isAfter(now))
+                      .toList();
                   if (signals.isEmpty) {
                     return const SliverToBoxAdapter(
                       child: Padding(

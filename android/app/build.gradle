@@ -62,7 +62,7 @@ android {
         applicationId "com.marketresolve.app"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion 36
-        versionCode 19
+        versionCode 28
         versionName '1.0.7'
     }
 

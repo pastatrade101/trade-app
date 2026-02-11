@@ -102,6 +102,7 @@ class SignalRepository {
     String? session,
     String? pair,
     String? direction,
+    List<String>? statuses,
     List<String>? followingIds,
   }) async {
     if (followingIds != null) {
@@ -115,11 +116,17 @@ class SignalRepository {
           session: session,
           pair: pair,
           direction: direction,
+          statuses: statuses,
         );
       }
     }
 
-    var query = _buildFilterQuery(session: session, pair: pair, direction: direction)
+    var query = _buildFilterQuery(
+          session: session,
+          pair: pair,
+          direction: direction,
+          statuses: statuses,
+        )
         .orderBy('createdAt', descending: true)
         .limit(limit);
 
@@ -159,14 +166,12 @@ class SignalRepository {
     String? session,
     String? pair,
     String? direction,
+    List<String>? statuses,
   }) {
-    var query = _signals.where('status', whereIn: const [
-      'open',
-      'voting',
-      'resolved',
-      'expired',
-      'expired_unverified',
-    ]);
+    final statusFilter = (statuses != null && statuses.isNotEmpty)
+        ? statuses
+        : const ['open', 'voting', 'resolved', 'expired'];
+    var query = _signals.where('status', whereIn: statusFilter);
     if (session != null && session.isNotEmpty) {
       query = query.where('session', isEqualTo: session);
     }
@@ -185,9 +190,15 @@ class SignalRepository {
     String? session,
     String? pair,
     String? direction,
+    List<String>? statuses,
   }) async {
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    final baseQuery = _buildFilterQuery(session: session, pair: pair, direction: direction);
+    final baseQuery = _buildFilterQuery(
+      session: session,
+      pair: pair,
+      direction: direction,
+      statuses: statuses,
+    );
 
     for (final traderUid in followingIds) {
       final snapshot = await baseQuery
@@ -239,6 +250,19 @@ class SignalRepository {
       return _signals
           .where('status', isEqualTo: status)
           .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Signal.fromJson(doc.id, doc.data()))
+              .toList());
+    });
+  }
+
+  Stream<List<Signal>> watchSignalsWithResults({int limit = 50}) {
+    return guardAuthStream(() {
+      return _signals
+          .where('result', whereIn: const ['tp_hit', 'sl_hit', 'no_hit'])
+          .orderBy('closedAt', descending: true)
           .limit(limit)
           .snapshots()
           .map((snapshot) => snapshot.docs
@@ -467,7 +491,7 @@ class SignalRepository {
     if (signal.status == 'resolved') {
       throw StateError('Voting has closed for this signal.');
     }
-    if (signal.status == 'expired_unverified') {
+    if (signal.status == 'expired') {
       throw StateError('Voting window expired for this signal.');
     }
     if (signal.status != 'voting') {

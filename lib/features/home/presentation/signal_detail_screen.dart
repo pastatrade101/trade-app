@@ -156,7 +156,6 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
   Widget build(BuildContext context) {
     final signalState = ref.watch(signalDetailProvider(widget.signalId));
     final currentUser = ref.watch(currentUserProvider).value;
-    final isPremiumActive = ref.watch(isPremiumActiveProvider);
     final sessionConfig =
         ref.watch(tradingSessionConfigProvider).asData?.value ??
             TradingSessionConfig.fallback();
@@ -221,9 +220,10 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
             return const Center(child: Text('Signal not found'));
           }
           final colorScheme = Theme.of(context).colorScheme;
-          final canViewPremium = isPremiumActive ||
-              (currentUser?.role == 'admin') ||
-              (currentUser?.uid == signal.uid);
+          final isPremiumActive = ref.watch(isPremiumActiveProvider);
+          final role = currentUser?.role;
+          final canViewPremium =
+              isPremiumActive || isAdmin(role) || isTrader(role);
           final isLocked = signal.premiumOnly && !canViewPremium;
           final premiumDetailsState = signal.premiumOnly
               ? ref.watch(signalPremiumDetailsProvider((
@@ -247,8 +247,21 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
           final showResolveButtons =
               signal.status == 'open' ||
               signal.status == 'voting' ||
-              signal.status == 'expired_unverified';
+              signal.status == 'expired';
           final isAdminUser = currentUser != null && isAdmin(currentUser.role);
+          final autoResultLabel = _formatAutoResultLabel(signal.result);
+          final autoPipsLabel = _formatAutoPipsLabel(signal.pips);
+          final autoCloseLabel = signal.closedPrice != null
+              ? _formatAutoPrice(signal.closedPrice!)
+              : null;
+          final autoClosedAtLabel = signal.closedAt != null
+              ? formatTanzaniaDateTime(signal.closedAt!)
+              : null;
+          final showAutoPreview = isAdminUser &&
+              (autoResultLabel != null ||
+                  autoPipsLabel != null ||
+                  autoCloseLabel != null ||
+                  autoClosedAtLabel != null);
           final resolvedAtText = signal.resolvedAt != null
               ? formatTanzaniaDateTime(signal.resolvedAt!)
               : null;
@@ -367,6 +380,65 @@ class _SignalDetailScreenState extends ConsumerState<SignalDetailScreen> {
                       reasoning: premiumDetails?.reason ?? signal.reasoning,
                       tags: signal.tags,
                     ),
+                  if (showAutoPreview) ...[
+                    const Divider(height: 32),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Auto evaluation',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            if (autoResultLabel != null)
+                              _SignalStat(
+                                label: 'Result',
+                                value: autoResultLabel,
+                                valueColor: _autoResultColor(
+                                  signal.result,
+                                  colorScheme,
+                                  tokens,
+                                ),
+                              ),
+                            if (autoPipsLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _SignalStat(
+                                  label: 'Pips',
+                                  value: autoPipsLabel,
+                                  valueColor: _autoPipsColor(
+                                    signal.pips,
+                                    colorScheme,
+                                    tokens,
+                                  ),
+                                ),
+                              ),
+                            if (autoCloseLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _SignalStat(
+                                  label: 'Close',
+                                  value: autoCloseLabel,
+                                  valueColor: tokens.mutedText,
+                                ),
+                              ),
+                            if (autoClosedAtLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _SignalStat(
+                                  label: 'Closed',
+                                  value: autoClosedAtLabel,
+                                  valueColor: tokens.mutedText,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   if (isAdminUser) ...[
                     const Divider(height: 32),
                     Card(
@@ -1056,8 +1128,8 @@ String _statusLabel(String status) {
   if (normalized == 'voting') {
     return 'CLOSED';
   }
-  if (normalized == 'expired_unverified') {
-    return 'UNVERIFIED';
+  if (normalized == 'expired') {
+    return 'EXPIRED';
   }
   return status.toUpperCase();
 }
@@ -1073,10 +1145,73 @@ Color _statusColor(String status, ColorScheme colorScheme, AppThemeTokens tokens
   if (normalized == 'resolved' || normalized == 'closed') {
     return tokens.mutedText;
   }
-  if (normalized == 'expired_unverified') {
+  if (normalized == 'expired') {
     return tokens.warning;
   }
   return tokens.warning;
+}
+
+String? _formatAutoResultLabel(String? value) {
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  switch (value) {
+    case 'tp_hit':
+      return 'TP hit';
+    case 'sl_hit':
+      return 'SL hit';
+    case 'no_hit':
+      return 'No hit';
+    default:
+      return value.replaceAll('_', ' ');
+  }
+}
+
+String? _formatAutoPipsLabel(double? value) {
+  if (value == null) {
+    return null;
+  }
+  final sign = value > 0 ? '+' : '';
+  return '$sign${value.toStringAsFixed(1)} pips';
+}
+
+String _formatAutoPrice(double value) {
+  final text = value.toStringAsFixed(5);
+  return text.replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
+Color _autoResultColor(
+  String? value,
+  ColorScheme colorScheme,
+  AppThemeTokens tokens,
+) {
+  switch (value) {
+    case 'tp_hit':
+      return tokens.success;
+    case 'sl_hit':
+      return colorScheme.error;
+    case 'no_hit':
+      return tokens.mutedText;
+    default:
+      return colorScheme.primary;
+  }
+}
+
+Color _autoPipsColor(
+  double? value,
+  ColorScheme colorScheme,
+  AppThemeTokens tokens,
+) {
+  if (value == null) {
+    return tokens.mutedText;
+  }
+  if (value > 0) {
+    return tokens.success;
+  }
+  if (value < 0) {
+    return colorScheme.error;
+  }
+  return tokens.mutedText;
 }
 
 Color _outcomeColor(

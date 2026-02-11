@@ -1,7 +1,7 @@
 name: stock_investment_flutter
 description: A new Flutter project.
 
-version: 1.0.8
+version: 1.0.17
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -70,6 +70,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/2.png
+    - assets/logogliank.png
+    - assets/lauch1.png
     - assets/onboard.png
     - assets/stock/
     - assets/icons/

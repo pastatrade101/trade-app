@@ -191,7 +191,7 @@ class _LoadingScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'MarketResolve TZ',
+                'Soko Gliant',
                 style: textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),

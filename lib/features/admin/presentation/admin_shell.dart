@@ -19,6 +19,7 @@ import 'plan_manager_screen.dart';
 import 'revenue_screen.dart';
 import '../services/sales_report_service.dart';
 import 'session_settings_screen.dart';
+import 'signal_moderation_screen.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
 final _adminTabProvider = StateProvider<int>((ref) => 0);
@@ -1356,6 +1357,20 @@ class ContentManagementTab extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => const SessionSettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+        Card(
+          child: ListTile(
+            title: const Text('Signal results'),
+            subtitle: const Text('Preview auto-evaluated signals'),
+            trailing: const Icon(AppIcons.arrow_forward),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SignalModerationScreen(),
                 ),
               );
             },

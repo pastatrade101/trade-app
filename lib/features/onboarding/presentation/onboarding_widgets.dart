@@ -10,8 +10,6 @@ class OnboardingScaffold extends StatelessWidget {
     required this.subtitle,
     required this.body,
     required this.actions,
-    this.showSteps = true,
-    this.totalSteps = 6,
   });
 
   final int step;
@@ -19,8 +17,6 @@ class OnboardingScaffold extends StatelessWidget {
   final String subtitle;
   final Widget body;
   final List<Widget> actions;
-  final bool showSteps;
-  final int totalSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +37,8 @@ class OnboardingScaffold extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showSteps) ...[
-                StepIndicator(step: step, total: totalSteps),
-                const SizedBox(height: 24),
-              ],
+              StepIndicator(step: step),
+              const SizedBox(height: 24),
               Text(
                 title,
                 style: textTheme.headlineMedium?.copyWith(

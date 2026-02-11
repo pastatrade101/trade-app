@@ -57,6 +57,7 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
         ? enabledSessions
         : TradingSessionConfig.fallback().enabledSessionsOrdered();
     final baseFilter = ref.watch(signalFeedFilterProvider);
+    final isHistoryView = baseFilter.view == SignalFeedView.history;
     _scheduleTabSync(sessions);
 
     final tabController = _tabController;
@@ -117,23 +118,27 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
                 ),
               ],
             ),
-            SliverToBoxAdapter(
-              child: StreamBuilder<DailyHighlight?>(
-                stream: highlightStream,
-                builder: (context, snapshot) {
-                  final highlight = snapshot.data;
-                  if (highlight == null || !highlight.isActive) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: _TodayHighlightCard(
-                      highlight: highlight,
-                      onTap: () => _openHighlight(context, highlight),
-                    ),
-                  );
-                },
+            if (!isHistoryView)
+              SliverToBoxAdapter(
+                child: StreamBuilder<DailyHighlight?>(
+                  stream: highlightStream,
+                  builder: (context, snapshot) {
+                    final highlight = snapshot.data;
+                    if (highlight == null || !highlight.isActive) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: _TodayHighlightCard(
+                        highlight: highlight,
+                        onTap: () => _openHighlight(context, highlight),
+                      ),
+                    );
+                  },
+                ),
               ),
+            const SliverToBoxAdapter(
+              child: _SignalViewToggle(),
             ),
             SliverPersistentHeader(
               pinned: true,
@@ -147,7 +152,9 @@ class _SignalFeedScreenState extends ConsumerState<SignalFeedScreen>
             final session = _sessions[index];
             final filter = baseFilter.copyWith(session: session.key);
             return _SignalFeedList(
-              key: ValueKey('signals_${session.key}_${baseFilter.pair}'),
+              key: ValueKey(
+                'signals_${session.key}_${baseFilter.pair}_${baseFilter.view.name}',
+              ),
               filter: filter,
             );
           }),
@@ -284,6 +291,51 @@ class _PairFilterAction extends ConsumerWidget {
             const SizedBox(width: 2),
             Icon(AppIcons.expand_more, size: 18, color: colorScheme.primary),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalViewToggle extends ConsumerWidget {
+  const _SignalViewToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(signalFeedFilterProvider);
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: tokens.surfaceAlt,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: tokens.border),
+        ),
+        child: SegmentedButton<SignalFeedView>(
+          segments: const [
+            ButtonSegment(
+              value: SignalFeedView.active,
+              label: Text('Live'),
+            ),
+            ButtonSegment(
+              value: SignalFeedView.history,
+              label: Text('Old'),
+            ),
+          ],
+          selected: {filter.view},
+          onSelectionChanged: (selection) {
+            if (selection.isEmpty) return;
+            final view = selection.first;
+            if (view == filter.view) return;
+            ref.read(signalFeedFilterProvider.notifier).state =
+                filter.copyWith(view: view);
+          },
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
         ),
       ),
     );
@@ -715,7 +767,7 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
             .loadInitial(),
         child: ListView(
           key: PageStorageKey(
-            'signals_${widget.filter.session}_${widget.filter.pair}',
+            'signals_${widget.filter.session}_${widget.filter.pair}_${widget.filter.view.name}',
           ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
@@ -737,7 +789,7 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
             .loadInitial(),
         child: ListView(
           key: PageStorageKey(
-            'signals_${widget.filter.session}_${widget.filter.pair}',
+            'signals_${widget.filter.session}_${widget.filter.pair}_${widget.filter.view.name}',
           ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
@@ -765,7 +817,7 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
             .loadInitial(),
         child: ListView(
           key: PageStorageKey(
-            'signals_${widget.filter.session}_${widget.filter.pair}',
+            'signals_${widget.filter.session}_${widget.filter.pair}_${widget.filter.view.name}',
           ),
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
@@ -790,7 +842,7 @@ class _SignalFeedListState extends ConsumerState<_SignalFeedList>
             _handleScroll(notification, hasMore),
         child: ListView.separated(
           key: PageStorageKey(
-            'signals_${widget.filter.session}_${widget.filter.pair}',
+            'signals_${widget.filter.session}_${widget.filter.pair}_${widget.filter.view.name}',
           ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           physics: const AlwaysScrollableScrollPhysics(),

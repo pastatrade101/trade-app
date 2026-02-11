@@ -30,9 +30,6 @@ class AppUser {
   final List<String>? interests;
   final Map<String, bool>? nudgeFlags;
   final bool? notifyNewSignals;
-  final bool? notifSignals;
-  final bool? notifAnnouncements;
-  final String? membershipTier;
   final String? phoneNumber;
   final UserMembership? membership;
   final bool? termsAccepted;
@@ -76,9 +73,6 @@ class AppUser {
     this.interests,
     this.nudgeFlags,
     this.notifyNewSignals,
-    this.notifSignals,
-    this.notifAnnouncements,
-    this.membershipTier,
     this.phoneNumber,
     this.membership,
     this.termsAccepted,
@@ -136,9 +130,6 @@ class AppUser {
               .map((key, value) => MapEntry(key, value == true))
           : null,
       notifyNewSignals: json['notifyNewSignals'] as bool?,
-      notifSignals: json['notifSignals'] as bool?,
-      notifAnnouncements: json['notifAnnouncements'] as bool?,
-      membershipTier: json['membershipTier'] as String?,
       phoneNumber: json['phoneNumber'] as String?,
       membership: UserMembership.fromJson(
         json['membership'] as Map<String, dynamic>?,
@@ -192,9 +183,6 @@ class AppUser {
       if (interests != null) 'interests': interests,
       if (nudgeFlags != null) 'nudgeFlags': nudgeFlags,
       if (notifyNewSignals != null) 'notifyNewSignals': notifyNewSignals,
-      if (notifSignals != null) 'notifSignals': notifSignals,
-      if (notifAnnouncements != null) 'notifAnnouncements': notifAnnouncements,
-      if (membershipTier != null) 'membershipTier': membershipTier,
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (membership != null) 'membership': membership!.toJson(),
       if (termsAccepted != null) 'termsAccepted': termsAccepted,
@@ -243,9 +231,6 @@ class AppUser {
       interests: null,
       nudgeFlags: null,
       notifyNewSignals: null,
-      notifSignals: null,
-      notifAnnouncements: null,
-      membershipTier: null,
       phoneNumber: null,
       membership: UserMembership.free(),
       termsAccepted: null,

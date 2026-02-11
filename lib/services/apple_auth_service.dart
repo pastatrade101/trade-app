@@ -82,15 +82,17 @@ class AppleAuthService {
       if (error.code == AuthorizationErrorCode.canceled) {
         return null;
       }
+      final code = error.code.toString();
+      final message = error.message ?? 'No error message provided.';
       throw FirebaseAuthException(
         code: 'apple_sign_in_failed',
-        message: error.message ?? 'Apple sign-in failed.',
+        message: 'Apple sign-in failed. code=$code message=$message',
       );
-    } catch (_) {
-      debugPrint('Apple sign-in failed.');
+    } catch (error) {
+      debugPrint('Apple sign-in failed: $error');
       throw FirebaseAuthException(
         code: 'apple_sign_in_failed',
-        message: 'Apple sign-in failed.',
+        message: 'Apple sign-in failed. error=$error',
       );
     }
   }
