@@ -17,20 +17,67 @@ class NewsPage extends StatelessWidget {
     return DefaultTabController(
       length: sources.length,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('News'),
-          bottom: TabBar(
-            tabs: sources
-                .map((source) => Tab(text: source.label))
-                .toList(),
+        body: _NewsPageBackground(
+          child: SafeArea(
+            child: Column(
+              children: [
+                TabBar(
+                  tabs:
+                      sources.map((source) => Tab(text: source.label)).toList(),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: sources
+                        .map((source) => NewsTab(source: source))
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        body: TabBarView(
-          children: sources
-              .map((source) => NewsTab(source: source))
-              .toList(),
-        ),
       ),
+    );
+  }
+}
+
+class _NewsPageBackground extends StatelessWidget {
+  const _NewsPageBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/tab.jpg',
+          fit: BoxFit.cover,
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isLightTheme
+                  ? [
+                      Colors.white.withValues(alpha: 0.78),
+                      tokens.background.withValues(alpha: 0.9),
+                      tokens.background.withValues(alpha: 0.97),
+                    ]
+                  : [
+                      Colors.black.withValues(alpha: 0.68),
+                      tokens.background.withValues(alpha: 0.84),
+                      tokens.background.withValues(alpha: 0.92),
+                    ],
+            ),
+          ),
+        ),
+        child,
+      ],
     );
   }
 }
@@ -44,22 +91,59 @@ class NewsTab extends ConsumerStatefulWidget {
   ConsumerState<NewsTab> createState() => _NewsTabState();
 }
 
-class _NewsTabState extends ConsumerState<NewsTab> {
-  late Future<List<NewsItem>> _future;
+class _NewsTabState extends ConsumerState<NewsTab> with WidgetsBindingObserver {
+  static const Duration _refreshInterval = Duration(minutes: 2);
+
+  late Future<NewsFeedResult> _future;
+  DateTime? _lastLoadedAt;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    WidgetsBinding.instance.addObserver(this);
+    _future = _load(forceRefresh: true);
   }
 
-  Future<List<NewsItem>> _load() {
-    return ref.read(newsRepositoryProvider).fetchNews(widget.source);
+  @override
+  void didUpdateWidget(covariant NewsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source != widget.source) {
+      _future = _load(forceRefresh: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+    final lastLoadedAt = _lastLoadedAt;
+    if (lastLoadedAt == null ||
+        DateTime.now().difference(lastLoadedAt) >= _refreshInterval) {
+      setState(() {
+        _future = _load(forceRefresh: true);
+      });
+    }
+  }
+
+  Future<NewsFeedResult> _load({bool forceRefresh = false}) async {
+    final result = await ref.read(newsRepositoryProvider).fetchNewsFeed(
+          widget.source,
+          forceRefresh: forceRefresh,
+        );
+    _lastLoadedAt = DateTime.now();
+    return result;
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _future = _load();
+      _future = _load(forceRefresh: true);
     });
     await _future;
   }
@@ -88,7 +172,7 @@ class _NewsTabState extends ConsumerState<NewsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<NewsItem>>(
+    return FutureBuilder<NewsFeedResult>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
@@ -102,7 +186,8 @@ class _NewsTabState extends ConsumerState<NewsTab> {
             onRetry: _refresh,
           );
         }
-        final items = snapshot.data ?? [];
+        final result = snapshot.data;
+        final items = result?.items ?? [];
         if (items.isEmpty) {
           return _buildMessage(
             title: 'No news yet',
@@ -115,10 +200,17 @@ class _NewsTabState extends ConsumerState<NewsTab> {
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemCount: items.length,
+            itemCount: items.length + (result?.servedFromCache == true ? 1 : 0),
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final item = items[index];
+              if (result?.servedFromCache == true && index == 0) {
+                return _CacheWarningCard(
+                  fetchedAt: result?.fetchedAt,
+                );
+              }
+              final itemIndex =
+                  result?.servedFromCache == true ? index - 1 : index;
+              final item = items[itemIndex];
               return _NewsCard(
                 item: item,
                 timeAgo: _timeAgo(item.publishedAt),
@@ -206,6 +298,48 @@ class _NewsTabState extends ConsumerState<NewsTab> {
   }
 }
 
+class _CacheWarningCard extends StatelessWidget {
+  const _CacheWarningCard({required this.fetchedAt});
+
+  final DateTime? fetchedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final updatedAt = fetchedAt == null
+        ? 'Latest sync time unavailable'
+        : 'Last synced ${DateFormat('MMM d, HH:mm').format(fetchedAt!.toLocal())}';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tokens.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: tokens.warning.withValues(alpha: 0.32),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Showing cached headlines',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$updatedAt. Pull to refresh for a live RSS fetch.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: tokens.mutedText,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NewsCard extends StatefulWidget {
   const _NewsCard({
     required this.item,
@@ -233,17 +367,33 @@ class _NewsCardState extends State<_NewsCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
+    const radius = 16.0;
     return Material(
-      color: tokens.surface,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(radius),
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(radius),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: tokens.border),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                tokens.surface.withValues(alpha: 0.52),
+                tokens.surface.withValues(alpha: 0.38),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

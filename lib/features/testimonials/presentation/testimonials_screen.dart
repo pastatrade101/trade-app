@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../app/providers.dart';
-import '../../../core/models/app_user.dart';
 import '../../../core/models/testimonial.dart';
 import '../../../core/utils/role_helpers.dart';
 import '../../../core/utils/time_format.dart';
@@ -14,115 +13,67 @@ import '../../../core/widgets/firestore_error_widget.dart';
 import 'testimonial_form_screen.dart';
 import 'package:stock_investment_flutter/app/app_icons.dart';
 
-class TestimonialsScreen extends ConsumerWidget {
-  const TestimonialsScreen({super.key});
+class TestimonialsScreen extends ConsumerStatefulWidget {
+  const TestimonialsScreen({
+    super.key,
+    this.embedded = false,
+  });
+
+  final bool embedded;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).value;
-    final canSubmit = isTrader(user?.role);
-    final repo = ref.watch(testimonialRepositoryProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('What members are saying'),
-        elevation: 2,
-        shadowColor: Colors.black12,
-        actions: [
-          if (canSubmit)
-            IconButton(
-              tooltip: 'Submit testimonial',
-              icon: const Icon(AppIcons.post_add),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const TestimonialFormScreen(),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-      body: StreamBuilder<List<Testimonial>>(
-        stream: repo.watchPublished(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return FirestoreErrorWidget(
-              error: snapshot.error!,
-              stackTrace: snapshot.stackTrace,
-              title: 'Unable to load testimonials',
-            );
-          }
-          final testimonials = snapshot.data ?? [];
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              if (canSubmit && user != null) ...[
-                _TraderSubmissionSection(user: user),
-                const SizedBox(height: 16),
-              ],
-              const SizedBox(height: 12),
-              if (loading)
-                const _TestimonialsLoading()
-              else if (testimonials.isEmpty)
-                const Text('No testimonials published yet.')
-              else
-                ...testimonials.map(
-                  (testimonial) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: RepaintBoundary(
-                      child: AppReveal(
-                        child: _TestimonialCard(testimonial: testimonial),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  ConsumerState<TestimonialsScreen> createState() => _TestimonialsScreenState();
 }
 
-class _TraderSubmissionSection extends ConsumerWidget {
-  const _TraderSubmissionSection({required this.user});
+class _TestimonialsScreenState extends ConsumerState<TestimonialsScreen> {
+  bool _ascending = false;
 
-  final AppUser user;
+  void _setAscending(bool ascending) {
+    if (_ascending == ascending) {
+      return;
+    }
+    setState(() {
+      _ascending = ascending;
+    });
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider).value;
+    final canSubmit = canSubmitTestimonials(user?.role, user?.traderStatus);
     final repo = ref.watch(testimonialRepositoryProvider);
-    return StreamBuilder<List<Testimonial>>(
-      stream: repo.watchByAuthor(user.uid),
+    final body = StreamBuilder<List<Testimonial>>(
+      stream: repo.watchPublished(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const SizedBox.shrink();
+          return FirestoreErrorWidget(
+            error: snapshot.error!,
+            stackTrace: snapshot.stackTrace,
+            title: 'Unable to load testimonials',
+          );
         }
-        final items = snapshot.data ?? [];
-        final visible = items.take(3).toList();
-        return AppSectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AppSectionTitle(title: 'Your submissions'),
-              const SizedBox(height: 8),
-              Text(
-                'New testimonials go live immediately. Edit or delete anytime.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              if (items.isEmpty)
-                const Text('No testimonials submitted yet.')
-              else
-                ...visible.map(
-                  (testimonial) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AppReveal(
-                      child: _TestimonialCard(
-                        testimonial: testimonial,
-                        showStatus: true,
-                        actions: [
+        final testimonials = snapshot.data ?? [];
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+        final sortedTestimonials = List<Testimonial>.from(testimonials);
+        sortedTestimonials.sort((a, b) {
+          final comparison = a.createdAt.compareTo(b.createdAt);
+          return _ascending ? comparison : -comparison;
+        });
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            const SizedBox(height: 12),
+            if (loading)
+              const _TestimonialsLoading()
+            else if (sortedTestimonials.isEmpty)
+              const Text('No testimonials published yet.')
+            else
+              ...sortedTestimonials.map(
+                (testimonial) {
+                  final isOwn =
+                      user != null && testimonial.authorUid == user.uid;
+                  final List<Widget> actions = isOwn
+                      ? <Widget>[
                           OutlinedButton(
                             onPressed: () {
                               Navigator.of(context).push(
@@ -137,25 +88,79 @@ class _TraderSubmissionSection extends ConsumerWidget {
                           ),
                           TextButton(
                             onPressed: () async {
-                              final shouldDelete = await _confirmDelete(context);
+                              final shouldDelete =
+                                  await _confirmDelete(context);
                               if (shouldDelete != true) {
                                 return;
                               }
-                              final repo =
-                                  ref.read(testimonialRepositoryProvider);
                               await repo.delete(testimonial);
                             },
                             child: const Text('Delete'),
                           ),
-                        ],
+                        ]
+                      : const [];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: RepaintBoundary(
+                      child: AppReveal(
+                        child: _TestimonialCard(
+                          testimonial: testimonial,
+                          showStatus: isOwn,
+                          actions: actions,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
+                  );
+                },
+              ),
+          ],
         );
       },
+    );
+
+    if (widget.embedded) {
+      return body;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('What members are saying'),
+        elevation: 2,
+        shadowColor: Colors.black12,
+        actions: [
+          PopupMenuButton<bool>(
+            tooltip: 'Sort testimonials',
+            icon: const Icon(Icons.sort),
+            initialValue: _ascending,
+            onSelected: _setAscending,
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem<bool>(
+                value: false,
+                checked: !_ascending,
+                child: const Text('Newest first'),
+              ),
+              CheckedPopupMenuItem<bool>(
+                value: true,
+                checked: _ascending,
+                child: const Text('Oldest first'),
+              ),
+            ],
+          ),
+          if (canSubmit)
+            IconButton(
+              tooltip: 'Submit testimonial',
+              icon: const Icon(AppIcons.post_add),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const TestimonialFormScreen(),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+      body: body,
     );
   }
 }
@@ -186,9 +191,7 @@ class _TestimonialCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  testimonial.title.isEmpty
-                      ? 'Testimonial'
-                      : testimonial.title,
+                  testimonial.title.isEmpty ? 'Testimonial' : testimonial.title,
                   style: textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -305,7 +308,7 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
